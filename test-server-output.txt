@@ -1,0 +1,12 @@
+Attempting to connect to MongoDB...
+❌ Local MongoDB not available, trying MongoDB Memory Server...
+Starting the MongoMemoryServer Instance failed, enable debug log for more information. Error:
+ GenericMMSError: Instance failed to start within 10000ms
+    at Timeout.<anonymous> (C:\Users\KERRY-ANN\Desktop\quizknow-app4\node_modules\mongodb-memory-server-core\lib\util\MongoInstance.js:149:29)
+    at listOnTimeout (node:internal/timers:588:17)
+    at process.processTimers (node:internal/timers:523:7)
+❌ MongoDB Memory Server failed, trying simple in-memory setup...
+⚠️  Starting server without database connection
+🚀 Server running on http://localhost:5002
+📋 Health check available at: http://localhost:5002/
+^C

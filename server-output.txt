@@ -1,0 +1,4 @@
+🚀 Server running on http://localhost:5001
+📋 Health check: http://localhost:5001/
+👥 Users endpoint: http://localhost:5001/api/users
+📝 Quizzes endpoint: http://localhost:5001/api/quizzes

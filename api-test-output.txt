@@ -1,0 +1,45 @@
+🧪 Testing QuizKnow API endpoints...
+
+✅ /: {
+  "message": "QuizKnow API is running!",
+  "status": "OK",
+  "timestamp": "2025-08-29T22:23:53.018Z",
+  "endpoints": [
+    "GET  /api/users",
+    "GET  /api/quizzes",
+    "POST /api/auth/login",
+    "POST /api/auth/register"
+  ]
+}
+
+✅ /api/users: [
+  {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john@example.com",
+    "role": "student"
+  },
+  {
+    "id": 2,
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "role": "instructor"
+  }
+]
+
+✅ /api/quizzes: [
+  {
+    "id": 1,
+    "title": "JavaScript Basics",
+    "description": "Test your JS knowledge",
+    "questions": 10
+  },
+  {
+    "id": 2,
+    "title": "React Fundamentals",
+    "description": "React concepts quiz",
+    "questions": 8
+  }
+]
+
+🎉 All endpoints tested successfully!
