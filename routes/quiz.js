@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Quiz = require('../models/Quiz');
 const QuizSession = require('../models/QuizSession');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 
 // Get all quizzes with filtering and pagination

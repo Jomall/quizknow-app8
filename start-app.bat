@@ -12,8 +12,8 @@ if %errorlevel% neq 0 (
 )
 
 :: Start backend server
-echo Starting backend server on port 5000...
-start cmd /k "cd /d %~dp0 && npm install && node server.js"
+echo Starting backend server on port 5000 (using mongodb-memory-server)...
+start cmd /k "cd /d %~dp0 && npm install && node server-test.js"
 
 :: Wait for backend to start
 timeout /t 5 /nobreak >nul

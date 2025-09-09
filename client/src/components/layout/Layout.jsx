@@ -1,9 +1,12 @@
 import React from 'react';
 import { Box } from '@mui/material';
+import { useAuth } from '../../context/AuthContext';
 import Header from './Header';
 import Footer from './Footer';
 
-const Layout = ({ children, user, onLogout }) => {
+const Layout = ({ children }) => {
+  const { user, logout } = useAuth();
+
   return (
     <Box
       sx={{
@@ -12,7 +15,7 @@ const Layout = ({ children, user, onLogout }) => {
         minHeight: '100vh',
       }}
     >
-      <Header user={user} onLogout={onLogout} />
+      <Header user={user} onLogout={logout} />
       <Box
         component="main"
         sx={{
