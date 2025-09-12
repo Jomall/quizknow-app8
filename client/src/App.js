@@ -7,7 +7,14 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
+import StudentDashboardPage from './pages/StudentDashboardPage';
+import InstructorDashboardPage from './pages/InstructorDashboardPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import CreateQuizPage from './pages/CreateQuizPage';
+import CreateContentPage from './pages/CreateContentPage';
+import ContentViewPage from './pages/ContentViewPage';
+import ManageAssignmentsPage from './pages/ManageAssignmentsPage';
+import StudentsPage from './pages/StudentsPage';
 import QuizListPage from './pages/QuizListPage';
 import QuizSessionPage from './pages/QuizSessionPage';
 import QuizResultsPage from './pages/QuizResultsPage';
@@ -35,6 +42,26 @@ function App() {
                   <CreateQuizPage />
                 </ProtectedRoute>
               } />
+              <Route path="/create-content" element={
+                <ProtectedRoute>
+                  <CreateContentPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/content/:contentId" element={
+                <ProtectedRoute>
+                  <ContentViewPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/manage-assignments" element={
+                <ProtectedRoute>
+                  <ManageAssignmentsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/students" element={
+                <ProtectedRoute>
+                  <StudentsPage />
+                </ProtectedRoute>
+              } />
               <Route path="/quizzes" element={<QuizListPage />} />
               <Route path="/quiz/:quizId" element={<QuizSessionPage />} />
               <Route path="/quiz-results/:sessionId" element={<QuizResultsPage />} />
@@ -42,6 +69,21 @@ function App() {
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/student-dashboard" element={
+                <ProtectedRoute>
+                  <StudentDashboardPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/instructor-dashboard" element={
+                <ProtectedRoute>
+                  <InstructorDashboardPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin-dashboard" element={
+                <ProtectedRoute>
+                  <AdminDashboardPage />
                 </ProtectedRoute>
               } />
             </Routes>

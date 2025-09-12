@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema({
   profile: {
     firstName: String,
     lastName: String,
+    institution: String,
     avatar: String,
     bio: String
   },

@@ -12,7 +12,24 @@ const contentSchema = new mongoose.Schema({
   },
   url: {
     type: String,
-    required: true
+    required: function() {
+      return this.type === 'link';
+    }
+  },
+  filePath: {
+    type: String,
+    required: function() {
+      return ['video', 'document', 'image', 'audio'].includes(this.type);
+    }
+  },
+  fileName: {
+    type: String
+  },
+  fileSize: {
+    type: Number
+  },
+  mimeType: {
+    type: String
   },
   description: String,
   instructor: {

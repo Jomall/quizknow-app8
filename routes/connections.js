@@ -41,7 +41,7 @@ router.post('/request', auth, checkApproved, async (req, res) => {
     await connection.save();
     
     const populatedConnection = await Connection.findById(connection._id)
-      .populate('sender receiver', 'username profile.firstName profile.lastName profile.avatar');
+      .populate('sender receiver', 'username profile.firstName profile.lastName profile.avatar role');
 
     res.status(201).json({
       message: 'Connection request sent successfully',
@@ -70,7 +70,7 @@ router.put('/accept/:id', auth, checkApproved, async (req, res) => {
     await connection.save();
 
     const populatedConnection = await Connection.findById(connection._id)
-      .populate('sender receiver', 'username profile.firstName profile.lastName profile.avatar');
+      .populate('sender receiver', 'username profile.firstName profile.lastName profile.avatar role');
 
     res.json({
       message: 'Connection accepted successfully',
@@ -109,9 +109,9 @@ router.get('/my-connections', auth, checkApproved, async (req, res) => {
   try {
     const connections = await Connection.find({
       $or: [{ sender: req.user.id }, { receiver: req.user.id }],
-      status: 'accepted'
+      status: { $in: ['accepted', 'pending'] }
     })
-    .populate('sender receiver', 'username profile.firstName profile.lastName profile.avatar')
+    .populate('sender receiver', 'username profile.firstName profile.lastName profile.avatar role')
     .sort({ updatedAt: -1 });
 
     res.json(connections);
@@ -127,7 +127,7 @@ router.get('/pending-requests', auth, checkApproved, async (req, res) => {
       receiver: req.user.id,
       status: 'pending'
     })
-    .populate('sender', 'username profile.firstName profile.lastName profile.avatar')
+    .populate('sender', 'username profile.firstName profile.lastName profile.avatar role')
     .sort({ createdAt: -1 });
 
     res.json(pendingRequests);

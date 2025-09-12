@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import quizAPI from '../services/quizAPI';
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const QuizContext = createContext();
 
@@ -121,16 +124,60 @@ export const QuizProvider = ({ children }) => {
         questionId,
         answer,
       }));
-      
+
       await quizAPI.submitQuiz(
         state.currentQuiz._id,
         state.session._id,
         answersArray
       );
-      
+
       dispatch({ type: ACTIONS.COMPLETE_QUIZ });
     } catch (error) {
       dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
+    }
+  };
+
+  const getInstructorQuizzes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/quizzes/my-quizzes`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching instructor quizzes:', error);
+      return [];
+    }
+  };
+
+  const getInstructorStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/users/stats`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching instructor stats:', error);
+      return {
+        totalQuizzes: 0,
+        totalStudents: 0,
+        averageScore: 0,
+        completionRate: 0,
+      };
+    }
+  };
+
+  const createQuiz = async (quizData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/quizzes`, quizData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating quiz:', error);
+      throw error;
     }
   };
 
@@ -141,6 +188,9 @@ export const QuizProvider = ({ children }) => {
     startQuiz,
     updateAnswer,
     submitQuiz,
+    getInstructorQuizzes,
+    getInstructorStats,
+    createQuiz,
   };
 
   return <QuizContext.Provider value={value}>{children}</QuizContext.Provider>;

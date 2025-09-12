@@ -8,18 +8,28 @@ const router = express.Router();
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role, profile } = req.body;
+    const { firstName, lastName, email, password, role, institution } = req.body;
+
+    // Generate username from first and last name
+    const username = `${firstName.toLowerCase()}${lastName.toLowerCase()}`.replace(/\s+/g, '');
 
     // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { username }]
     });
-    
+
     if (existingUser) {
-      return res.status(400).json({ 
-        message: 'User already exists with this email or username' 
+      return res.status(400).json({
+        message: 'User already exists with this email or username'
       });
     }
+
+    // Create profile object
+    const profile = {
+      firstName,
+      lastName,
+      institution
+    };
 
     // Create new user
     const user = new User({
@@ -62,7 +72,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }

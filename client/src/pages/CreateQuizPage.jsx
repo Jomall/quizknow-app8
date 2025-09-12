@@ -8,18 +8,23 @@ import {
   StepLabel,
   Button,
   Paper,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useQuiz } from '../context/QuizContext';
-import QuizCreator from '../components/quiz/QuizCreator';
-import QuestionBuilder from '../components/quiz/QuestionBuilder';
+import BasicInfoForm from '../components/quiz/BasicInfoForm';
+import QuestionList from '../components/quiz/QuestionList';
 import QuizPreview from '../components/quiz/QuizPreview';
+import StudentSelector from '../components/common/StudentSelector';
 
-const steps = ['Basic Info', 'Add Questions', 'Preview & Publish'];
+const steps = ['Basic Info', 'Add Questions', 'Select Students', 'Preview & Publish'];
 
 const CreateQuizPage = () => {
   const [activeStep, setActiveStep] = useState(0);
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [error, setError] = useState('');
   const [quizData, setQuizData] = useState({
     title: '',
     description: '',
@@ -54,12 +59,83 @@ const CreateQuizPage = () => {
     setQuizData({ ...quizData, questions });
   };
 
+  const handleStudentSelectionChange = (students) => {
+    setSelectedStudents(students);
+  };
+
   const handlePublish = async () => {
     try {
-      await createQuiz(quizData);
+      // Transform quizData to match server expectations
+      const transformedQuizData = {
+        ...quizData,
+        difficulty: mapDifficulty(quizData.difficulty),
+        settings: {
+          timeLimit: quizData.timeLimit,
+          maxAttempts: quizData.settings.allowMultipleAttempts ? 10 : 1,
+          randomizeQuestions: quizData.settings.randomizeQuestions,
+          randomizeOptions: false, // default
+          showCorrectAnswers: quizData.settings.showCorrectAnswers,
+          showScore: true, // default
+          allowReview: true, // default
+          passingScore: quizData.settings.passingScore,
+          certificateEnabled: false, // default
+        },
+        isPublished: true,
+        questions: quizData.questions.map(q => {
+          const { isRequired, ...cleanQuestion } = q;
+          if (q.type === 'multiple-choice') {
+            return {
+              ...cleanQuestion,
+              options: q.options.map(option => ({
+                text: option,
+                isCorrect: option === q.correctAnswer,
+                explanation: ''
+              }))
+            };
+          }
+          return cleanQuestion;
+        })
+      };
+      // Remove timeLimit from root level
+      delete transformedQuizData.timeLimit;
+
+      // Create quiz first
+      const createdQuiz = await createQuiz(transformedQuizData);
+
+      // If students are selected, assign them to the quiz
+      if (selectedStudents.length > 0) {
+        await assignQuizToStudents(createdQuiz._id, selectedStudents);
+      }
+
       navigate('/dashboard');
     } catch (error) {
       console.error('Error creating quiz:', error);
+      setError(error.response?.data?.message || 'Failed to create quiz. Please try again.');
+    }
+  };
+
+  const mapDifficulty = (clientDifficulty) => {
+    const difficultyMap = {
+      'easy': 'beginner',
+      'medium': 'intermediate',
+      'hard': 'advanced',
+    };
+    return difficultyMap[clientDifficulty] || 'mixed';
+  };
+
+  const assignQuizToStudents = async (quizId, studentIds) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5000/api/quizzes/${quizId}/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ studentIds })
+      });
+    } catch (error) {
+      console.error('Error assigning quiz to students:', error);
     }
   };
 
@@ -67,27 +143,51 @@ const CreateQuizPage = () => {
     switch (step) {
       case 0:
         return (
-          <QuizCreator
+          <BasicInfoForm
             quizData={quizData}
             onChange={handleQuizDataChange}
           />
         );
       case 1:
         return (
-          <QuestionBuilder
+          <QuestionList
             questions={quizData.questions}
             onChange={handleQuestionsChange}
           />
         );
       case 2:
         return (
+          <StudentSelector
+            selectedStudents={selectedStudents}
+            onSelectionChange={handleStudentSelectionChange}
+            label="Select Students to Assign Quiz"
+          />
+        );
+      case 3:
+        return (
           <QuizPreview
             quizData={quizData}
+            selectedStudents={selectedStudents}
             onPublish={handlePublish}
           />
         );
       default:
         return 'Unknown step';
+    }
+  };
+
+  const isStepValid = (step) => {
+    switch (step) {
+      case 0:
+        return quizData.title.trim() !== '';
+      case 1:
+        return quizData.questions.length > 0;
+      case 2:
+        return true; // Student selection is optional
+      case 3:
+        return true;
+      default:
+        return false;
     }
   };
 
@@ -129,7 +229,7 @@ const CreateQuizPage = () => {
             <Button
               variant="contained"
               onClick={handlePublish}
-              disabled={quizData.questions.length === 0}
+              disabled={!isStepValid(activeStep)}
             >
               Publish Quiz
             </Button>
@@ -137,16 +237,24 @@ const CreateQuizPage = () => {
             <Button
               variant="contained"
               onClick={handleNext}
-              disabled={
-                (activeStep === 0 && !quizData.title) ||
-                (activeStep === 1 && quizData.questions.length === 0)
-              }
+              disabled={!isStepValid(activeStep)}
             >
               Next
             </Button>
           )}
         </Box>
       </Paper>
+
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={() => setError('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setError('')} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

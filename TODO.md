@@ -1,13 +1,6 @@
-# TODO: Setup QuizKnow App4 with MongoDB Memory Server
-
-## Current Status
-- [x] Modify start-app.bat to use server-test.js
-- [x] Install npm dependencies
-- [x] Test server startup with mongodb-memory-server
-- [x] Verify frontend starts successfully
-- [ ] Test application functionality
-
-## Notes
-- Using mongodb-memory-server to avoid MongoDB installation
-- server-test.js is already configured for in-memory database
-- mongodb-memory-server is already in devDependencies
+- [x] Add getInstructorQuizzes and getInstructorStats functions to QuizContext
+- [x] Update backend stats query to count all accepted connections for instructor
+- [x] Create StudentsPage.jsx to list connected students
+- [x] Add /students route in App.js
+- [x] Add createQuiz function to QuizContext for quiz creation
+- [x] Test the instructor dashboard, students page, and quiz creation

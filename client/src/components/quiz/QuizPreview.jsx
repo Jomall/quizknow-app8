@@ -9,9 +9,9 @@ import {
   Chip,
   Divider,
 } from '@mui/material';
-import { CheckCircle, Cancel } from '@mui/icons-material';
+import { CheckCircle, Cancel, People } from '@mui/icons-material';
 
-const QuizPreview = ({ quizData, onPublish }) => {
+const QuizPreview = ({ quizData, selectedStudents = [], onPublish }) => {
   const { title, description, category, difficulty, timeLimit, questions, settings } = quizData;
 
   const getDifficultyColor = (difficulty) => {
@@ -25,9 +25,14 @@ const QuizPreview = ({ quizData, onPublish }) => {
 
   const getQuestionTypeLabel = (type) => {
     switch (type) {
-      case 'multiple_choice': return 'Multiple Choice';
-      case 'true_false': return 'True/False';
-      case 'short_answer': return 'Short Answer';
+      case 'multiple-choice': return 'Multiple Choice';
+      case 'true-false': return 'True/False';
+      case 'short-answer': return 'Short Answer';
+      case 'essay': return 'Essay';
+      case 'fill-in-the-blank': return 'Fill in the Blank';
+      case 'select-all': return 'Select All';
+      case 'matching': return 'Matching';
+      case 'ordering': return 'Ordering';
       default: return type;
     }
   };
@@ -38,16 +43,16 @@ const QuizPreview = ({ quizData, onPublish }) => {
         <Typography variant="h5" gutterBottom>
           Quiz Preview: {title}
         </Typography>
-        
+
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" color="text.secondary" gutterBottom>
             {description}
           </Typography>
-          
+
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
             <Chip label={category} variant="outlined" />
-            <Chip 
-              label={difficulty} 
+            <Chip
+              label={difficulty}
               color={getDifficultyColor(difficulty)}
               variant="outlined"
             />
@@ -89,10 +94,41 @@ const QuizPreview = ({ quizData, onPublish }) => {
 
         <Divider sx={{ my: 2 }} />
 
+        {/* Selected Students Section */}
+        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <People />
+          Assigned Students ({selectedStudents.length})
+        </Typography>
+
+        {selectedStudents.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            No students selected. Quiz will be created but not assigned to any students.
+          </Typography>
+        ) : (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Quiz will be assigned to the following students:
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {selectedStudents.map((studentId, index) => (
+                <Chip
+                  key={studentId}
+                  label={`Student ${index + 1}`}
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                />
+              ))}
+            </Box>
+          </Box>
+        )}
+
+        <Divider sx={{ my: 2 }} />
+
         <Typography variant="h6" gutterBottom>
           Questions ({questions.length})
         </Typography>
-        
+
         {questions.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No questions added yet.
@@ -102,22 +138,22 @@ const QuizPreview = ({ quizData, onPublish }) => {
             {questions.map((question, index) => (
               <ListItem key={index} sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                 <Typography variant="subtitle2">
-                  Q{index + 1}: {question.questionText}
+                  Q{index + 1}: {question.question}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                  <Chip 
-                    label={getQuestionTypeLabel(question.type)} 
-                    size="small" 
+                  <Chip
+                    label={getQuestionTypeLabel(question.type)}
+                    size="small"
                     variant="outlined"
                   />
-                  <Chip 
-                    label={`${question.points} points`} 
-                    size="small" 
+                  <Chip
+                    label={`${question.points} points`}
+                    size="small"
                     variant="outlined"
                   />
                 </Box>
-                
-                {question.type === 'multiple_choice' && (
+
+                {question.type === 'multiple-choice' && question.options && (
                   <Box sx={{ mt: 1, ml: 2 }}>
                     {question.options.map((option, optIndex) => (
                       <Box
@@ -139,11 +175,11 @@ const QuizPreview = ({ quizData, onPublish }) => {
                     ))}
                   </Box>
                 )}
-                
-                {question.type === 'true_false' && (
+
+                {question.type === 'true-false' && (
                   <Box sx={{ mt: 1, ml: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {question.correctAnswer === 'True' ? (
+                      {question.correctAnswer === 'true' ? (
                         <CheckCircle fontSize="small" color="success" />
                       ) : (
                         <Cancel fontSize="small" color="error" />
@@ -151,7 +187,7 @@ const QuizPreview = ({ quizData, onPublish }) => {
                       <Typography variant="body2">True</Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {question.correctAnswer === 'False' ? (
+                      {question.correctAnswer === 'false' ? (
                         <CheckCircle fontSize="small" color="success" />
                       ) : (
                         <Cancel fontSize="small" color="error" />
@@ -160,8 +196,8 @@ const QuizPreview = ({ quizData, onPublish }) => {
                     </Box>
                   </Box>
                 )}
-                
-                {question.type === 'short_answer' && (
+
+                {(question.type === 'short-answer' || question.type === 'essay') && question.correctAnswer && (
                   <Box sx={{ mt: 1, ml: 2 }}>
                     <Typography variant="body2" color="success.main">
                       Correct answer: {question.correctAnswer}

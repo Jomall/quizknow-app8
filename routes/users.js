@@ -1,5 +1,7 @@
 const express = require('express');
 const User = require('../models/User');
+const Connection = require('../models/Connection');
+const Quiz = require('../models/Quiz');
 const { auth, authorize, checkApproved } = require('../middleware/auth');
 
 const router = express.Router();
@@ -17,7 +19,7 @@ router.get('/', auth, authorize('admin'), async (req, res) => {
 // Get all instructors (public)
 router.get('/instructors', async (req, res) => {
   try {
-    const instructors = await User.find({ role: 'instructor', isApproved: true })
+    const instructors = await User.find({ role: 'instructor' })
       .select('-password');
     res.json(instructors);
   } catch (error) {
@@ -60,7 +62,7 @@ router.put('/approve-instructor/:id', auth, authorize('admin'), async (req, res)
 router.put('/profile', auth, checkApproved, async (req, res) => {
   try {
     const { profile } = req.body;
-    
+
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { profile, updatedAt: new Date() },
@@ -68,6 +70,31 @@ router.put('/profile', auth, checkApproved, async (req, res) => {
     ).select('-password');
 
     res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get instructor stats
+router.get('/stats', auth, authorize('instructor'), checkApproved, async (req, res) => {
+  try {
+    const totalStudents = await Connection.countDocuments({
+      $or: [
+        { sender: req.user.id, status: 'accepted' },
+        { receiver: req.user.id, status: 'accepted' }
+      ]
+    });
+
+    const totalQuizzes = await Quiz.countDocuments({ instructor: req.user.id });
+
+    // You can add more stats here like total content, average score, etc.
+
+    res.json({
+      totalStudents,
+      totalQuizzes,
+      averageScore: 0, // placeholder
+      completionRate: 0, // placeholder
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
