@@ -46,6 +46,7 @@ const StudentDashboardPage = () => {
   const [recentQuizzes, setRecentQuizzes] = useState([]);
   const [availableQuizzes, setAvailableQuizzes] = useState([]);
   const [receivedContent, setReceivedContent] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
   const [stats, setStats] = useState({
     totalQuizzes: 0,
     completedQuizzes: 0,
@@ -73,18 +74,33 @@ const StudentDashboardPage = () => {
     }
   };
 
+  const fetchSentRequests = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/connections/sent-requests`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching sent requests:', error);
+      return [];
+    }
+  };
+
   const loadDashboardData = async () => {
     try {
-      const [quizzes, statsData, available, content] = await Promise.all([
+      const [quizzes, statsData, available, content, sentReqs] = await Promise.all([
         getUserQuizzes(),
         getQuizStats(),
         getAvailableQuizzes(),
         fetchReceivedContent(),
+        fetchSentRequests(),
       ]);
       setRecentQuizzes(quizzes.slice(0, 5));
       setStats(statsData);
       setAvailableQuizzes(available.slice(0, 5));
       setReceivedContent(content.slice(0, 5));
+      setSentRequests(sentReqs);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     }
@@ -121,6 +137,20 @@ const StudentDashboardPage = () => {
 
   const getContentTypeLabel = (type) => {
     return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  const handleCancelRequest = async (requestId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_BASE_URL}/connections/${requestId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Refresh sent requests
+      const updatedRequests = await fetchSentRequests();
+      setSentRequests(updatedRequests);
+    } catch (error) {
+      console.error('Error canceling request:', error);
+    }
   };
 
   return (
@@ -336,6 +366,50 @@ const StudentDashboardPage = () => {
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
                   No content received from instructors yet
+                </Typography>
+              )}
+            </List>
+          </Paper>
+        </Grid>
+
+        {/* My Connection Requests */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              My Connection Requests
+            </Typography>
+            <List>
+              {sentRequests.length > 0 ? (
+                sentRequests.map((request) => (
+                  <React.Fragment key={request._id}>
+                    <ListItem
+                      secondaryAction={
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="error"
+                          onClick={() => handleCancelRequest(request._id)}
+                        >
+                          Cancel
+                        </Button>
+                      }
+                    >
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'warning.main' }}>
+                          <PeopleIcon />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={`Request to ${request.receiver?.profile?.firstName || request.receiver?.username}`}
+                        secondary={`Sent on ${new Date(request.createdAt).toLocaleDateString()} • Status: Pending`}
+                      />
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                  No pending connection requests
                 </Typography>
               )}
             </List>

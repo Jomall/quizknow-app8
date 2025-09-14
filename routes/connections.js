@@ -6,7 +6,7 @@ const { auth, checkApproved } = require('../middleware/auth');
 const router = express.Router();
 
 // Send connection request
-router.post('/request', auth, checkApproved, async (req, res) => {
+router.post('/request', auth, async (req, res) => {
   try {
     const { receiverId, message } = req.body;
 
@@ -105,7 +105,7 @@ router.put('/reject/:id', auth, checkApproved, async (req, res) => {
 });
 
 // Get my connections
-router.get('/my-connections', auth, checkApproved, async (req, res) => {
+router.get('/my-connections', auth, async (req, res) => {
   try {
     const connections = await Connection.find({
       $or: [{ sender: req.user.id }, { receiver: req.user.id }],
@@ -137,7 +137,7 @@ router.get('/pending-requests', auth, checkApproved, async (req, res) => {
 });
 
 // Get sent connection requests
-router.get('/sent-requests', auth, checkApproved, async (req, res) => {
+router.get('/sent-requests', auth, async (req, res) => {
   try {
     const sentRequests = await Connection.find({
       sender: req.user.id,
@@ -153,18 +153,24 @@ router.get('/sent-requests', auth, checkApproved, async (req, res) => {
 });
 
 // Remove connection
-router.delete('/:id', auth, checkApproved, async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
     const connection = await Connection.findById(req.params.id);
-    
+
     if (!connection) {
       return res.status(404).json({ message: 'Connection not found' });
     }
 
-    const isParticipant = connection.sender.toString() === req.user.id || 
-                         connection.receiver.toString() === req.user.id;
-    
-    if (!isParticipant) {
+    const isSender = connection.sender.toString() === req.user.id;
+    const isReceiver = connection.receiver.toString() === req.user.id;
+
+    if (!isSender && !isReceiver) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // If user is sender (student), allow without approval
+    // If user is receiver (instructor), require approval
+    if (isReceiver && req.user.role !== 'instructor') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
