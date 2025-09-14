@@ -71,16 +71,35 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Validate input
+    if (!email || !email.trim()) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required' });
+    }
+
     // Find user
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ message: 'User not found' });
     }
 
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ message: 'Incorrect password' });
+    }
+
+    // Check if account is suspended
+    if (user.isSuspended) {
+      return res.status(400).json({ message: 'Account suspended' });
+    }
+
+    // Check if instructor account is approved
+    if (user.role === 'instructor' && !user.isApproved) {
+      return res.status(400).json({ message: 'Account not approved' });
     }
 
     // Generate JWT
@@ -99,6 +118,7 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role,
         isApproved: user.isApproved,
+        isSuspended: user.isSuspended,
         profile: user.profile
       }
     });
