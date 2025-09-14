@@ -45,7 +45,10 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 const StudentDashboardPage = () => {
   const [recentQuizzes, setRecentQuizzes] = useState([]);
   const [availableQuizzes, setAvailableQuizzes] = useState([]);
+  const [pendingQuizzes, setPendingQuizzes] = useState([]);
+  const [submittedQuizzes, setSubmittedQuizzes] = useState([]);
   const [receivedContent, setReceivedContent] = useState([]);
+  const [contentProgress, setContentProgress] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
   const [stats, setStats] = useState({
     totalQuizzes: 0,
@@ -55,7 +58,7 @@ const StudentDashboardPage = () => {
   });
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getUserQuizzes, getQuizStats, getAvailableQuizzes } = useQuiz();
+  const { getUserQuizzes, getQuizStats, getAvailableQuizzes, getPendingQuizzes, getSubmittedQuizzes } = useQuiz();
 
   useEffect(() => {
     loadDashboardData();
@@ -87,19 +90,38 @@ const StudentDashboardPage = () => {
     }
   };
 
+  const fetchContentProgress = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/content/progress`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching content progress:', error);
+      return [];
+    }
+  };
+
   const loadDashboardData = async () => {
     try {
-      const [quizzes, statsData, available, content, sentReqs] = await Promise.all([
+      const [quizzes, statsData, available, pending, submitted, content, progress, sentReqs] = await Promise.all([
         getUserQuizzes(),
         getQuizStats(),
         getAvailableQuizzes(),
+        getPendingQuizzes(),
+        getSubmittedQuizzes(),
         fetchReceivedContent(),
+        fetchContentProgress(),
         fetchSentRequests(),
       ]);
       setRecentQuizzes(quizzes.slice(0, 5));
       setStats(statsData);
       setAvailableQuizzes(available.slice(0, 5));
+      setPendingQuizzes(pending.slice(0, 5));
+      setSubmittedQuizzes(submitted.slice(0, 5));
       setReceivedContent(content.slice(0, 5));
+      setContentProgress(progress.slice(0, 5));
       setSentRequests(sentReqs);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -281,6 +303,57 @@ const StudentDashboardPage = () => {
           </Paper>
         </Grid>
 
+        {/* Pending Quizzes */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Pending Quizzes</Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleBrowseQuizzes}
+              >
+                View All
+              </Button>
+            </Box>
+            <List>
+              {pendingQuizzes.length > 0 ? (
+                pendingQuizzes.map((quiz) => (
+                  <React.Fragment key={quiz._id}>
+                    <ListItem
+                      secondaryAction={
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<PlayArrowIcon />}
+                          onClick={() => handleTakeQuiz(quiz._id)}
+                        >
+                          Take Quiz
+                        </Button>
+                      }
+                    >
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'warning.main' }}>
+                          {quiz.title.charAt(0)}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={quiz.title}
+                        secondary={`${quiz.questions?.length || 0} questions • ${quiz.timeLimit || 'No limit'}`}
+                      />
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                  No pending quizzes
+                </Typography>
+              )}
+            </List>
+          </Paper>
+        </Grid>
+
         {/* Recent Activity */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
@@ -315,6 +388,46 @@ const StudentDashboardPage = () => {
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
                   No recent quiz activity
+                </Typography>
+              )}
+            </List>
+          </Paper>
+        </Grid>
+
+        {/* Submitted Quizzes */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Submitted Quizzes</Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => navigate('/profile')}
+              >
+                View All
+              </Button>
+            </Box>
+            <List>
+              {submittedQuizzes.length > 0 ? (
+                submittedQuizzes.map((submission) => (
+                  <React.Fragment key={submission._id}>
+                    <ListItem>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'info.main' }}>
+                          {submission.quiz.title.charAt(0)}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={submission.quiz.title}
+                        secondary={`Score: ${submission.percentage}% • Submitted: ${new Date(submission.submittedAt).toLocaleDateString()}`}
+                      />
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                  No submitted quizzes yet
                 </Typography>
               )}
             </List>

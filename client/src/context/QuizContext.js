@@ -225,6 +225,32 @@ export const QuizProvider = ({ children }) => {
     }
   };
 
+  const getPendingQuizzes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/quizzes/pending`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching pending quizzes:', error);
+      return [];
+    }
+  };
+
+  const getSubmittedQuizzes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/quizzes/submitted`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching submitted quizzes:', error);
+      return [];
+    }
+  };
+
   const value = {
     ...state,
     fetchQuizzes,
@@ -238,6 +264,8 @@ export const QuizProvider = ({ children }) => {
     getUserQuizzes,
     getQuizStats,
     getAvailableQuizzes,
+    getPendingQuizzes,
+    getSubmittedQuizzes,
   };
 
   return <QuizContext.Provider value={value}>{children}</QuizContext.Provider>;

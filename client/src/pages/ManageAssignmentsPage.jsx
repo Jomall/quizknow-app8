@@ -31,6 +31,8 @@ import {
   Link as LinkIcon,
   PersonAdd as PersonAddIcon,
   People as PeopleIcon,
+  Publish as PublishIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -51,7 +53,13 @@ const ManageAssignmentsPage = () => {
     item: null,
     selectedStudents: [],
   });
+  const [publishDialog, setPublishDialog] = useState({
+    open: false,
+    item: null,
+    selectedStudents: [],
+  });
   const [assigning, setAssigning] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -135,6 +143,49 @@ const ManageAssignmentsPage = () => {
     }
   };
 
+  const handlePublishClick = (item) => {
+    setPublishDialog({
+      open: true,
+      item,
+      selectedStudents: [],
+    });
+  };
+
+  const handlePublishDialogClose = () => {
+    setPublishDialog({
+      open: false,
+      item: null,
+      selectedStudents: [],
+    });
+  };
+
+  const handlePublishStudentSelectionChange = (students) => {
+    setPublishDialog(prev => ({
+      ...prev,
+      selectedStudents: students,
+    }));
+  };
+
+  const handlePublishSubmit = async () => {
+    try {
+      setPublishing(true);
+      const { item, selectedStudents } = publishDialog;
+
+      await axios.post(`${API_BASE_URL}/quizzes/${item._id}/publish`, {
+        studentIds: selectedStudents,
+      });
+
+      // Refresh data
+      await loadData();
+      handlePublishDialogClose();
+    } catch (err) {
+      console.error('Error publishing:', err);
+      setError('Failed to publish quiz');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const getContentIcon = (type) => {
     switch (type) {
       case 'video': return <VideoLibraryIcon />;
@@ -173,19 +224,36 @@ const ManageAssignmentsPage = () => {
                 quiz.difficulty === 'medium' ? 'warning' : 'error'
               }
             />
+            <Chip
+              icon={quiz.isPublished ? <CheckCircleIcon /> : <PublishIcon />}
+              label={quiz.isPublished ? 'Published' : 'Draft'}
+              size="small"
+              color={quiz.isPublished ? 'success' : 'default'}
+              variant={quiz.isPublished ? 'filled' : 'outlined'}
+            />
           </Box>
           <Typography variant="caption" color="text.secondary">
             {quiz.students?.length || 0} students assigned
           </Typography>
         </CardContent>
         <CardActions>
-          <Button
-            size="small"
-            startIcon={<PersonAddIcon />}
-            onClick={() => handleAssignClick('quiz', quiz)}
-          >
-            Assign Students
-          </Button>
+          {quiz.isPublished ? (
+            <Button
+              size="small"
+              startIcon={<PersonAddIcon />}
+              onClick={() => handleAssignClick('quiz', quiz)}
+            >
+              Assign Students
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              startIcon={<PublishIcon />}
+              onClick={() => handlePublishClick(quiz)}
+            >
+              Publish Quiz
+            </Button>
+          )}
         </CardActions>
       </Card>
     </Grid>
@@ -329,6 +397,39 @@ const ManageAssignmentsPage = () => {
             disabled={assigning}
           >
             {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Publish Dialog */}
+      <Dialog
+        open={publishDialog.open}
+        onClose={handlePublishDialogClose}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Publish Quiz to Students
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Select students to publish "{publishDialog.item?.title}" to. This will make the quiz visible to the selected students.
+          </Typography>
+          <StudentSelector
+            selectedStudents={publishDialog.selectedStudents}
+            onSelectionChange={handlePublishStudentSelectionChange}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handlePublishDialogClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handlePublishSubmit}
+            variant="contained"
+            disabled={publishing}
+          >
+            {publishing ? 'Publishing...' : 'Publish'}
           </Button>
         </DialogActions>
       </Dialog>

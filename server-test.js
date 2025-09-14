@@ -5,13 +5,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const http = require('http');
 const socketIo = require('socket.io');
 
-// Import routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const quizRoutes = require('./routes/quizzes');
-const submissionRoutes = require('./routes/submissions');
-const connectionRoutes = require('./routes/connections');
-const contentRoutes = require('./routes/content');
+// Import routes will be done after DB connection
 
 const app = express();
 const server = http.createServer(app);
@@ -32,14 +26,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/quizzes', quizRoutes);
-app.use('/api/submissions', submissionRoutes);
-app.use('/api/connections', connectionRoutes);
-app.use('/api/content', contentRoutes);
 
 // MongoDB Memory Server for testing without local MongoDB
 let mongoServer;
@@ -75,6 +61,22 @@ async function startServer() {
       socketTimeoutMS: 30000,
     });
     console.log('Connected to MongoDB Memory Server');
+
+    // Import routes after DB connection
+    const authRoutes = require('./routes/auth');
+    const userRoutes = require('./routes/users');
+    const quizRoutes = require('./routes/quizzes');
+    const submissionRoutes = require('./routes/submissions');
+    const connectionRoutes = require('./routes/connections');
+    const contentRoutes = require('./routes/content');
+
+    // Routes
+    app.use('/api/auth', authRoutes);
+    app.use('/api/users', userRoutes);
+    app.use('/api/quizzes', quizRoutes);
+    app.use('/api/submissions', submissionRoutes);
+    app.use('/api/connections', connectionRoutes);
+    app.use('/api/content', contentRoutes);
 
     // Start Express server
     const PORT = process.env.PORT || 5000;

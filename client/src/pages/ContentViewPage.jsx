@@ -8,6 +8,9 @@ import {
   Avatar,
   Chip,
   Divider,
+  Rating,
+  TextField,
+  Alert,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -17,6 +20,7 @@ import {
   Audiotrack as AudiotrackIcon,
   Link as LinkIcon,
   Download as DownloadIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +32,10 @@ const ContentViewPage = () => {
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComments, setFeedbackComments] = useState('');
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const navigate = useNavigate();
   const { contentId } = useParams();
   const { user } = useAuth();
@@ -83,6 +91,30 @@ const ContentViewPage = () => {
   const handleDownload = () => {
     if (content.filePath) {
       window.open(`${API_BASE_URL.replace('/api', '')}/uploads/${content.fileName}`, '_blank');
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (feedbackRating === 0) {
+      alert('Please provide a rating');
+      return;
+    }
+
+    try {
+      setSubmittingFeedback(true);
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_BASE_URL}/content/${contentId}/feedback`, {
+        rating: feedbackRating,
+        comments: feedbackComments
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setFeedbackSubmitted(true);
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      alert('Failed to submit feedback');
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -210,6 +242,53 @@ const ContentViewPage = () => {
           >
             Mark as Completed
           </Button>
+        </Box>
+
+        {/* Feedback Section */}
+        <Divider sx={{ my: 3 }} />
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Provide Feedback
+          </Typography>
+          {feedbackSubmitted ? (
+            <Alert severity="success">
+              Thank you for your feedback!
+            </Alert>
+          ) : (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Rate this content and share your thoughts
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography component="legend">Rating</Typography>
+                <Rating
+                  name="content-rating"
+                  value={feedbackRating}
+                  onChange={(event, newValue) => {
+                    setFeedbackRating(newValue);
+                  }}
+                  size="large"
+                />
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Comments (optional)"
+                value={feedbackComments}
+                onChange={(e) => setFeedbackComments(e.target.value)}
+                placeholder="Share your feedback about this content..."
+                sx={{ mb: 2 }}
+              />
+              <Button
+                variant="outlined"
+                onClick={handleSubmitFeedback}
+                disabled={submittingFeedback || feedbackRating === 0}
+              >
+                {submittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+              </Button>
+            </Box>
+          )}
         </Box>
       </Paper>
     </Container>

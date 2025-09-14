@@ -25,6 +25,19 @@ const contentViewSchema = new mongoose.Schema({
   timeSpent: {
     type: Number, // in minutes
     default: 0
+  },
+  feedback: {
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5
+    },
+    comments: {
+      type: String
+    },
+    submittedAt: {
+      type: Date
+    }
   }
 });
 

@@ -35,6 +35,7 @@ const Header = ({ user, onLogout }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const toggleRef = useRef(null);
   const drawerRef = useRef(null);
+  const anchorRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -46,8 +47,8 @@ const Header = ({ user, onLogout }) => {
     }
   }, [mobileOpen]);
 
-  const handleMenu = (event) => {
-    setAnchorEl(event.currentTarget);
+  const handleMenu = () => {
+    setAnchorEl(anchorRef.current);
   };
 
   const handleClose = () => {
@@ -196,6 +197,7 @@ const Header = ({ user, onLogout }) => {
             {user ? (
               <>
                 <IconButton
+                  ref={anchorRef}
                   size="large"
                   aria-label="account of current user"
                   aria-controls="menu-appbar"

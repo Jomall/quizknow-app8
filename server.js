@@ -8,15 +8,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Import routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const quizRoutes = require('./routes/quizzes');
-const quizDetailedRoutes = require('./routes/quiz');
-const contentRoutes = require('./routes/content');
-const connectionRoutes = require('./routes/connections');
-const submissionRoutes = require('./routes/submissions');
-
 dotenv.config();
 
 const app = express();
@@ -97,34 +88,47 @@ async function connectDB() {
   }
 }
 
-connectDB();
+async function startServer() {
+  await connectDB();
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/quizzes', quizRoutes);
-app.use('/api/quiz', quizDetailedRoutes);
-app.use('/api/content', contentRoutes);
-app.use('/api/connections', connectionRoutes);
-app.use('/api/submissions', submissionRoutes);
+  // Import routes after DB connection
+  const authRoutes = require('./routes/auth');
+  const userRoutes = require('./routes/users');
+  const quizRoutes = require('./routes/quizzes');
+  const quizDetailedRoutes = require('./routes/quiz');
+  const contentRoutes = require('./routes/content');
+  const connectionRoutes = require('./routes/connections');
+  const submissionRoutes = require('./routes/submissions');
 
-// Socket.io for real-time notifications
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-  
-  socket.on('join-room', (userId) => {
-    socket.join(userId);
+  // Routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/users', userRoutes);
+  app.use('/api/quizzes', quizRoutes);
+  app.use('/api/quiz', quizDetailedRoutes);
+  app.use('/api/content', contentRoutes);
+  app.use('/api/connections', connectionRoutes);
+  app.use('/api/submissions', submissionRoutes);
+
+  // Socket.io for real-time notifications
+  io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
+    
+    socket.on('join-room', (userId) => {
+      socket.join(userId);
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('User disconnected:', socket.id);
+    });
   });
-  
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+
+  // Make io accessible to routes
+  app.set('io', io);
+
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
-});
+}
 
-// Make io accessible to routes
-app.set('io', io);
-
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+startServer();

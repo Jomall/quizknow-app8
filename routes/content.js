@@ -80,7 +80,7 @@ router.post('/', auth, authorize('instructor'), checkApproved, async (req, res) 
 router.get('/', async (req, res) => {
   try {
     const { type, category, search } = req.query;
-    let query = { isPublished: true };
+    let query = { isPublic: true };
 
     if (type) query.type = type;
     if (category) query.category = category;
@@ -109,6 +109,20 @@ router.get('/assigned', auth, authorize('student'), async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json(content);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get content progress for student
+router.get('/progress', auth, authorize('student'), async (req, res) => {
+  try {
+    const contentViews = await ContentView.find({ student: req.user.id })
+      .populate('content', 'title type instructor')
+      .populate('content.instructor', 'username profile.firstName profile.lastName')
+      .sort({ viewedAt: -1 });
+
+    res.json(contentViews);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -263,6 +277,40 @@ router.post('/:id/complete', auth, authorize('student'), async (req, res) => {
     const view = await ContentView.findOneAndUpdate(
       { content: req.params.id, student: req.user.id },
       { completedAt: new Date(), isCompleted: true },
+      { upsert: true, new: true }
+    );
+
+    res.json(view);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Submit feedback for content (student only)
+router.post('/:id/feedback', auth, authorize('student'), async (req, res) => {
+  try {
+    const { rating, comments } = req.body;
+    const content = await Content.findById(req.params.id);
+
+    if (!content) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+
+    if (!content.allowedStudents.includes(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+    }
+
+    const view = await ContentView.findOneAndUpdate(
+      { content: req.params.id, student: req.user.id },
+      {
+        'feedback.rating': rating,
+        'feedback.comments': comments,
+        'feedback.submittedAt': new Date()
+      },
       { upsert: true, new: true }
     );
 

@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ConnectionRequests from '../components/common/ConnectionRequests';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -67,20 +68,31 @@ const InstructorDashboardPage = () => {
     loadDashboardData();
   }, []);
 
+  useEffect(() => {
+    if (!user.isApproved && activeTab === 3) {
+      setActiveTab(0);
+    }
+  }, [user.isApproved, activeTab]);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [quizzesRes, contentRes, progressRes, connectionsRes] = await Promise.all([
+      const promises = [
         axios.get(`${API_BASE_URL}/quizzes/my-quizzes`),
         axios.get(`${API_BASE_URL}/content/my-content`),
         axios.get(`${API_BASE_URL}/content/progress/students`),
-        axios.get(`${API_BASE_URL}/connections/pending-requests`)
-      ]);
+      ];
+
+      if (user.isApproved) {
+        promises.push(axios.get(`${API_BASE_URL}/connections/pending-requests`));
+      }
+
+      const [quizzesRes, contentRes, progressRes, ...rest] = await Promise.all(promises);
 
       const quizzes = quizzesRes.data;
       const content = contentRes.data;
       const progress = progressRes.data;
-      const pendingRequests = connectionsRes.data;
+      const pendingRequests = user.isApproved ? rest[0]?.data || [] : [];
 
       setStats({
         totalQuizzes: quizzes.length,
@@ -433,6 +445,7 @@ const InstructorDashboardPage = () => {
             <Tab label="Overview" />
             <Tab label="Student Progress" />
             <Tab label="Detailed View" />
+            {user.isApproved && <Tab label="Connection Requests" />}
           </Tabs>
         </Box>
 
@@ -517,6 +530,8 @@ const InstructorDashboardPage = () => {
             ))}
           </Box>
         )}
+
+        {activeTab === 3 && <ConnectionRequests />}
       </Paper>
     </Container>
   );
