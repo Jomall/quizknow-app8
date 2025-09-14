@@ -181,6 +181,50 @@ export const QuizProvider = ({ children }) => {
     }
   };
 
+  const getUserQuizzes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/submissions/my-submissions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user quizzes:', error);
+      return [];
+    }
+  };
+
+  const getQuizStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/users/quiz-stats`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching quiz stats:', error);
+      return {
+        totalQuizzes: 0,
+        completedQuizzes: 0,
+        averageScore: 0,
+        totalTime: 0,
+      };
+    }
+  };
+
+  const getAvailableQuizzes = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/quizzes/available`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching available quizzes:', error);
+      return [];
+    }
+  };
+
   const value = {
     ...state,
     fetchQuizzes,
@@ -191,6 +235,9 @@ export const QuizProvider = ({ children }) => {
     getInstructorQuizzes,
     getInstructorStats,
     createQuiz,
+    getUserQuizzes,
+    getQuizStats,
+    getAvailableQuizzes,
   };
 
   return <QuizContext.Provider value={value}>{children}</QuizContext.Provider>;
