@@ -37,7 +37,7 @@ import { useAuth } from '../context/AuthContext';
 import StudentSelector from '../components/common/StudentSelector';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 const ManageAssignmentsPage = () => {
   const [activeTab, setActiveTab] = useState(0);

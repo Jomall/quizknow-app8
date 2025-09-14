@@ -1,9 +1,9 @@
 # Debug Login Issue
 
 ## Current Status
-- Server running on port 5000
-- MongoDB connection timeout: "Operation `users.findOne()` buffering timed out after 10000ms"
-- CORS updated to allow localhost:3001
+- Server running on port 5001
+- MongoDB not installed as a service on Windows; needs to be installed and started
+- CORS updated to allow localhost:3000 and 3001
 - Test user created: test@example.com / password123
 - JWT_SECRET configured
 

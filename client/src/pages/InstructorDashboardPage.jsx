@@ -41,7 +41,7 @@ import { useQuiz } from '../context/QuizContext';
 import axios from 'axios';
 import ConnectionRequests from '../components/common/ConnectionRequests';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 const InstructorDashboardPage = () => {
   const [myQuizzes, setMyQuizzes] = useState([]);

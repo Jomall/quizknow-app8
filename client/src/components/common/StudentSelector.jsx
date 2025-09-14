@@ -15,7 +15,7 @@ import {
 import { People as PeopleIcon } from '@mui/icons-material';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 const StudentSelector = ({ selectedStudents, onSelectionChange, multiple = true }) => {
   const [connections, setConnections] = useState([]);

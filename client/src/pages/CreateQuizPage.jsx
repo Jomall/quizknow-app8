@@ -126,7 +126,7 @@ const CreateQuizPage = () => {
   const assignQuizToStudents = async (quizId, studentIds) => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:5000/api/quizzes/${quizId}/assign`, {
+      await fetch(`/api/quizzes/${quizId}/assign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
