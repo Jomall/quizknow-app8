@@ -43,11 +43,29 @@ const ContentViewPage = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setContent(response.data);
+
+      // Mark content as viewed
+      await axios.post(`${API_BASE_URL}/content/${contentId}/view`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
     } catch (error) {
       console.error('Error fetching content:', error);
       setError('Content not found or access denied');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMarkCompleted = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_BASE_URL}/content/${contentId}/complete`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Refresh content to update any status if needed
+      fetchContent();
+    } catch (error) {
+      console.error('Error marking content as completed:', error);
     }
   };
 
@@ -183,6 +201,16 @@ const ContentViewPage = () => {
             </Box>
           </Box>
         )}
+
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleMarkCompleted}
+          >
+            Mark as Completed
+          </Button>
+        </Box>
       </Paper>
     </Container>
   );

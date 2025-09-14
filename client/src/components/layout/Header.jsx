@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -33,8 +33,18 @@ import { useNavigate, useLocation } from 'react-router-dom';
 const Header = ({ user, onLogout }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const toggleRef = useRef(null);
+  const drawerRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (mobileOpen && drawerRef.current) {
+      drawerRef.current.focus();
+    } else if (!mobileOpen && toggleRef.current) {
+      toggleRef.current.focus();
+    }
+  }, [mobileOpen]);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -68,10 +78,11 @@ const Header = ({ user, onLogout }) => {
       </Toolbar>
       <Divider />
       <List>
-        {menuItems.map((item) => (
+        {menuItems.map((item, index) => (
           <ListItem
             button
             key={item.text}
+            ref={index === 0 ? drawerRef : null}
             onClick={() => {
               navigate(item.path);
               setMobileOpen(false);
@@ -113,6 +124,7 @@ const Header = ({ user, onLogout }) => {
       <AppBar position="static">
         <Toolbar>
           <IconButton
+            ref={toggleRef}
             color="inherit"
             aria-label="open drawer"
             edge="start"

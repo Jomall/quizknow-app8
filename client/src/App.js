@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { QuizProvider } from './context/QuizContext';
+import { ModalProvider } from './context/ModalContext';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
@@ -24,11 +25,12 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
   return (
-    <AuthProvider>
-      <QuizProvider>
-        <Router>
-          <Layout>
-            <Routes>
+    <ModalProvider>
+      <AuthProvider>
+        <QuizProvider>
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Layout>
+              <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
@@ -86,11 +88,12 @@ function App() {
                   <AdminDashboardPage />
                 </ProtectedRoute>
               } />
-            </Routes>
-          </Layout>
-        </Router>
-      </QuizProvider>
-    </AuthProvider>
+              </Routes>
+            </Layout>
+          </Router>
+        </QuizProvider>
+      </AuthProvider>
+    </ModalProvider>
   );
 }
 

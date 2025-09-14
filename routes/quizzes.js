@@ -114,7 +114,7 @@ router.post('/:id/assign', auth, authorize('instructor'), checkApproved, async (
   try {
     const { studentIds } = req.body;
     const quiz = await Quiz.findById(req.params.id);
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -133,6 +133,35 @@ router.post('/:id/assign', auth, authorize('instructor'), checkApproved, async (
     await quiz.save();
 
     res.json({ message: 'Quiz assigned successfully', quiz });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get available quizzes for student
+router.get('/available', auth, authorize('student'), async (req, res) => {
+  try {
+    // First get connected instructors
+    const Connection = require('../models/Connection');
+    const connections = await Connection.find({
+      $or: [
+        { sender: req.user.id, status: 'accepted' },
+        { receiver: req.user.id, status: 'accepted' }
+      ]
+    });
+
+    // Get instructor IDs (the other party in the connection)
+    const instructorIds = connections
+      .map(conn => conn.sender.toString() === req.user.id ? conn.receiver : conn.sender)
+      .filter(id => id.toString() !== req.user.id);
+
+    const quizzes = await Quiz.find({
+      'students.student': req.user.id,
+      isPublished: true,
+      instructor: { $in: instructorIds }
+    })
+      .populate('instructor', 'username profile.firstName profile.lastName');
+    res.json(quizzes);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

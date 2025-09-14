@@ -33,10 +33,17 @@ const authorize = (...roles) => {
 };
 
 const checkApproved = (req, res, next) => {
-  if (!req.user.isApproved) {
+  if (req.user.role === 'instructor' && !req.user.isApproved) {
     return res.status(403).json({ message: 'Account not approved' });
   }
   next();
 };
 
-module.exports = { auth, authorize, checkApproved };
+const checkSuspended = (req, res, next) => {
+  if (req.user.isSuspended) {
+    return res.status(403).json({ message: 'Account suspended' });
+  }
+  next();
+};
+
+module.exports = { auth, authorize, checkApproved, checkSuspended };

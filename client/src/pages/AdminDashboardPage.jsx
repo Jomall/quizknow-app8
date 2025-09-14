@@ -16,9 +16,13 @@ import {
   ListItemText,
   ListItemAvatar,
   Divider,
-  IconButton,
   Tab,
   Tabs,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -28,6 +32,9 @@ import {
   AdminPanelSettings as AdminIcon,
   MoreVert as MoreVertIcon,
   PersonAdd as PersonAddIcon,
+  Delete as DeleteIcon,
+  Block as BlockIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -44,6 +51,10 @@ const AdminDashboardPage = () => {
   });
   const [recentUsers, setRecentUsers] = useState([]);
   const [pendingInstructors, setPendingInstructors] = useState([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [userToSuspend, setUserToSuspend] = useState(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -53,24 +64,46 @@ const AdminDashboardPage = () => {
 
   const loadDashboardData = async () => {
     try {
-      // Mock data - in real app, fetch from API
+      const token = localStorage.getItem('token');
+      const [usersRes, pendingRes] = await Promise.all([
+        fetch('http://localhost:5000/api/users', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch('http://localhost:5000/api/users/pending-instructors', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      const users = await usersRes.json();
+      const pending = await pendingRes.json();
+
+      const totalUsers = users.length;
+      const totalStudents = users.filter(u => u.role === 'student').length;
+      const totalInstructors = users.filter(u => u.role === 'instructor').length;
+      const totalAdmins = users.filter(u => u.role === 'admin').length;
+
       setStats({
-        totalUsers: 1250,
-        totalStudents: 1100,
-        totalInstructors: 120,
-        totalAdmins: 30,
-        totalQuizzes: 450,
-        pendingApprovals: 5,
+        totalUsers,
+        totalStudents,
+        totalInstructors,
+        totalAdmins,
+        totalQuizzes: 0, // TODO: fetch from API
+        pendingApprovals: pending.length,
       });
-      setRecentUsers([
-        { id: 1, name: 'John Doe', role: 'student', email: 'john@example.com', joined: '2024-01-15' },
-        { id: 2, name: 'Jane Smith', role: 'instructor', email: 'jane@example.com', joined: '2024-01-14' },
-        { id: 3, name: 'Bob Johnson', role: 'student', email: 'bob@example.com', joined: '2024-01-13' },
-      ]);
-      setPendingInstructors([
-        { id: 1, name: 'Alice Wilson', email: 'alice@example.com', applied: '2024-01-10' },
-        { id: 2, name: 'Charlie Brown', email: 'charlie@example.com', applied: '2024-01-09' },
-      ]);
+      setRecentUsers(users.slice(0, 5).map(u => ({
+        id: u._id,
+        name: `${u.profile?.firstName || ''} ${u.profile?.lastName || ''}`.trim() || u.username,
+        role: u.role,
+        email: u.email,
+        joined: new Date(u.createdAt).toLocaleDateString(),
+        isSuspended: u.isSuspended
+      })));
+      setPendingInstructors(pending.map(u => ({
+        id: u._id,
+        name: `${u.profile?.firstName || ''} ${u.profile?.lastName || ''}`.trim() || u.username,
+        email: u.email,
+        applied: new Date(u.createdAt).toLocaleDateString()
+      })));
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     }
@@ -84,13 +117,87 @@ const AdminDashboardPage = () => {
     navigate('/admin/users');
   };
 
-  const handleApproveInstructor = (instructorId) => {
-    // Handle instructor approval
-    console.log('Approving instructor:', instructorId);
+  const handleApproveInstructor = async (instructorId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5000/api/users/approve-instructor/${instructorId}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Reload data
+      loadDashboardData();
+    } catch (error) {
+      console.error('Error approving instructor:', error);
+    }
   };
 
   const handleViewReports = () => {
     navigate('/admin/reports');
+  };
+
+  const handleDeleteUser = (user) => {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/users/${userToDelete.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        alert('User deleted successfully');
+        setDeleteDialogOpen(false);
+        setUserToDelete(null);
+        loadDashboardData();
+      } else {
+        const errorData = await response.json();
+        alert(`Error deleting user: ${errorData.message || 'Unknown error'}`);
+        setDeleteDialogOpen(false);
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Error deleting user: Network error');
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleSuspendUser = (user) => {
+    setUserToSuspend(user);
+    setSuspendDialogOpen(true);
+  };
+
+  const handleConfirmSuspend = async () => {
+    if (!userToSuspend) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/users/suspend/${userToSuspend.id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(data.message || 'User status updated successfully');
+        setSuspendDialogOpen(false);
+        setUserToSuspend(null);
+        loadDashboardData();
+      } else {
+        const errorData = await response.json();
+        alert(`Error updating user: ${errorData.message || 'Unknown error'}`);
+        setSuspendDialogOpen(false);
+      }
+    } catch (error) {
+      console.error('Error suspending user:', error);
+      alert('Error updating user: Network error');
+      setSuspendDialogOpen(false);
+    }
   };
 
   return (
@@ -226,11 +333,19 @@ const AdminDashboardPage = () => {
                     <React.Fragment key={user.id}>
                       <ListItem
                         secondaryAction={
-                          <Chip
-                            label={user.role}
-                            size="small"
-                            color={user.role === 'student' ? 'primary' : user.role === 'instructor' ? 'info' : 'secondary'}
-                          />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip
+                              label={user.role}
+                              size="small"
+                              color={user.role === 'student' ? 'primary' : user.role === 'instructor' ? 'info' : 'secondary'}
+                            />
+                            <Button onClick={(e) => { e.stopPropagation(); handleSuspendUser(user); }} variant="outlined" color={user.isSuspended ? "success" : "error"} startIcon={user.isSuspended ? <CheckCircleIcon /> : <BlockIcon />}>
+                              {user.isSuspended ? 'Unblock' : 'Block'}
+                            </Button>
+                            <IconButton edge="end" onClick={(e) => { e.stopPropagation(); handleDeleteUser(user); }}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
                         }
                       >
                         <ListItemAvatar>
@@ -320,6 +435,34 @@ const AdminDashboardPage = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete User</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete {userToDelete?.name}? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirmDelete} color="error">Delete</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={suspendDialogOpen} onClose={() => setSuspendDialogOpen(false)}>
+        <DialogTitle>{userToSuspend?.isSuspended ? 'Unsuspend' : 'Suspend'} User</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to {userToSuspend?.isSuspended ? 'unsuspend' : 'suspend'} {userToSuspend?.name}?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSuspendDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirmSuspend} color={userToSuspend?.isSuspended ? 'success' : 'warning'}>
+            {userToSuspend?.isSuspended ? 'Unsuspend' : 'Suspend'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

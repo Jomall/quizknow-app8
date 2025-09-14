@@ -209,21 +209,51 @@ const CreateContentPage = () => {
               </Select>
             </FormControl>
 
-            <TextField
-              fullWidth
-              label="URL"
-              value={contentData.url}
-              onChange={(e) => handleInputChange('url', e.target.value)}
-              required
-              placeholder={
-                contentData.type === 'video' ? 'https://youtube.com/watch?v=...' :
-                contentData.type === 'document' ? 'https://drive.google.com/file/...' :
-                contentData.type === 'image' ? 'https://example.com/image.jpg' :
-                contentData.type === 'audio' ? 'https://example.com/audio.mp3' :
-                'https://example.com/link'
-              }
-              sx={{ mb: 2 }}
-            />
+            {contentData.type === 'link' ? (
+              <TextField
+                fullWidth
+                label="URL"
+                value={contentData.url}
+                onChange={(e) => handleInputChange('url', e.target.value)}
+                required
+                placeholder={
+                  contentData.type === 'video' ? 'https://youtube.com/watch?v=...' :
+                  contentData.type === 'document' ? 'https://drive.google.com/file/...' :
+                  contentData.type === 'image' ? 'https://example.com/image.jpg' :
+                  contentData.type === 'audio' ? 'https://example.com/audio.mp3' :
+                  'https://example.com/link'
+                }
+                sx={{ mb: 2 }}
+              />
+            ) : (
+              <Box sx={{ mb: 2 }}>
+                <Input
+                  type="file"
+                  onChange={handleFileChange}
+                  inputProps={{
+                    accept: getContentTypeInfo(contentData.type).accept
+                  }}
+                  sx={{ display: 'none' }}
+                  id="file-upload"
+                />
+                <label htmlFor="file-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<CloudUploadIcon />}
+                    fullWidth
+                    sx={{ height: 56 }}
+                  >
+                    {selectedFile ? selectedFile.name : `Upload ${getContentTypeInfo(contentData.type).label}`}
+                  </Button>
+                </label>
+                {selectedFile && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    File size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </Typography>
+                )}
+              </Box>
+            )}
 
             <TextField
               fullWidth

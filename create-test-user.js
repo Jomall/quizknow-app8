@@ -10,7 +10,8 @@ async function createTestUser() {
       username: 'testuser',
       email: 'test@example.com',
       password: 'password123',
-      role: 'student'
+      role: 'student',
+      isApproved: true
     });
     
     await testUser.save();

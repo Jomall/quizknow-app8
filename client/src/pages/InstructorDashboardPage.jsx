@@ -2,60 +2,66 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
-  Grid,
-  Paper,
   Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  Avatar,
   Card,
   CardContent,
   CardActions,
   Button,
-  Avatar,
-  Chip,
+  Grid,
+  CircularProgress,
+  Alert,
+  Tabs,
+  Tab,
   List,
   ListItem,
   ListItemText,
   ListItemAvatar,
   Divider,
-  IconButton,
-  Fab,
-  Tabs,
-  Tab,
 } from '@mui/material';
 import {
-  Add as AddIcon,
-  TrendingUp as TrendingUpIcon,
-  School as SchoolIcon,
   People as PeopleIcon,
   Assignment as AssignmentIcon,
-  Analytics as AnalyticsIcon,
-  MoreVert as MoreVertIcon,
   VideoLibrary as VideoLibraryIcon,
-  Description as DescriptionIcon,
-  Image as ImageIcon,
-  Audiotrack as AudiotrackIcon,
-  Link as LinkIcon,
+  CheckCircle as CheckCircleIcon,
+  RadioButtonUnchecked as UncheckedIcon,
+  Visibility as VisibilityIcon,
+  Add as AddIcon,
+  School as SchoolIcon,
+  TrendingUp as TrendingUpIcon,
+  PersonAdd as PersonAddIcon,
+  Schedule as ScheduleIcon,
+  PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useQuiz } from '../context/QuizContext';
 import axios from 'axios';
-import ConnectionRequests from '../components/common/ConnectionRequests';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 const InstructorDashboardPage = () => {
-  const [myQuizzes, setMyQuizzes] = useState([]);
-  const [myContent, setMyContent] = useState([]);
   const [stats, setStats] = useState({
     totalQuizzes: 0,
-    totalStudents: 0,
-    averageScore: 0,
-    completionRate: 0,
+    totalContent: 0,
+    connectedStudents: 0,
+    pendingRequests: 0,
   });
+  const [studentProgress, setStudentProgress] = useState([]);
+  const [recentQuizzes, setRecentQuizzes] = useState([]);
+  const [recentContent, setRecentContent] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const { getInstructorQuizzes, getInstructorStats } = useQuiz();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadDashboardData();
@@ -63,30 +69,39 @@ const InstructorDashboardPage = () => {
 
   const loadDashboardData = async () => {
     try {
-      const [quizzes, statsData, content] = await Promise.all([
-        getInstructorQuizzes(),
-        getInstructorStats(),
-        fetchMyContent(),
+      setLoading(true);
+      const [quizzesRes, contentRes, progressRes, connectionsRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/quizzes/my-quizzes`),
+        axios.get(`${API_BASE_URL}/content/my-content`),
+        axios.get(`${API_BASE_URL}/content/progress/students`),
+        axios.get(`${API_BASE_URL}/connections/pending-requests`)
       ]);
-      setMyQuizzes(quizzes.slice(0, 5));
-      setStats(statsData);
-      setMyContent(content.slice(0, 5));
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
+
+      const quizzes = quizzesRes.data;
+      const content = contentRes.data;
+      const progress = progressRes.data;
+      const pendingRequests = connectionsRes.data;
+
+      setStats({
+        totalQuizzes: quizzes.length,
+        totalContent: content.length,
+        connectedStudents: progress.length,
+        pendingRequests: pendingRequests.length,
+      });
+
+      setStudentProgress(progress);
+      setRecentQuizzes(quizzes.slice(0, 5));
+      setRecentContent(content.slice(0, 5));
+    } catch (err) {
+      setError('Failed to load dashboard data');
+      console.error('Error loading dashboard:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchMyContent = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/content/my-content`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching content:', error);
-      return [];
-    }
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
   };
 
   const handleCreateQuiz = () => {
@@ -97,32 +112,303 @@ const InstructorDashboardPage = () => {
     navigate('/create-content');
   };
 
-  const handleViewQuiz = (quizId) => {
-    navigate(`/quiz-review/${quizId}`);
+  const handleManageAssignments = () => {
+    navigate('/manage-assignments');
   };
 
-  const handleViewContent = (contentId) => {
-    navigate(`/content/${contentId}`);
+  const handleViewStudents = () => {
+    navigate('/students');
   };
 
-  const handleViewAnalytics = () => {
-    navigate('/analytics');
-  };
-
-  const getContentIcon = (type) => {
-    switch (type) {
-      case 'video': return <VideoLibraryIcon />;
-      case 'document': return <DescriptionIcon />;
-      case 'image': return <ImageIcon />;
-      case 'audio': return <AudiotrackIcon />;
-      case 'link': return <LinkIcon />;
-      default: return <DescriptionIcon />;
+  const getStatusIcon = (item, type) => {
+    if (type === 'content') {
+      if (item.isCompleted) return <CheckCircleIcon color="success" />;
+      if (item.viewedAt) return <VisibilityIcon color="info" />;
+      return <UncheckedIcon color="disabled" />;
+    } else {
+      // quiz
+      if (item.isCompleted) return <CheckCircleIcon color="success" />;
+      return <UncheckedIcon color="disabled" />;
     }
   };
 
-  const getContentTypeLabel = (type) => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
+  const getStatusText = (item, type) => {
+    if (type === 'content') {
+      if (item.isCompleted) return 'Completed';
+      if (item.viewedAt) return 'Viewed';
+      return 'Not Started';
+    } else {
+      if (item.isCompleted) return `Completed (${item.percentage}%)`;
+      return 'Not Started';
+    }
   };
+
+  const renderStudentRow = (progress) => {
+    const { student, contentViews, quizSubmissions } = progress;
+    const totalAssignments = contentViews.length + quizSubmissions.length;
+    const completedCount = [...contentViews, ...quizSubmissions].filter(item =>
+      item.isCompleted || (item.viewedAt && !item.completedAt)
+    ).length;
+
+    return (
+      <TableRow key={student._id}>
+        <TableCell>
+          <Box display="flex" alignItems="center">
+            <Avatar sx={{ mr: 2 }}>
+              {student.profile?.firstName?.charAt(0) || student.username?.charAt(0)}
+            </Avatar>
+            <Box>
+              <Typography variant="subtitle2">
+                {student.profile?.firstName} {student.profile?.lastName}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {student.username}
+              </Typography>
+            </Box>
+          </Box>
+        </TableCell>
+        <TableCell>{totalAssignments}</TableCell>
+        <TableCell>{completedCount}</TableCell>
+        <TableCell>
+          <Box display="flex" flexWrap="wrap" gap={1}>
+            {contentViews.map(view => (
+              <Chip
+                key={view._id}
+                icon={getStatusIcon(view, 'content')}
+                label={`${view.content.title} (${view.content.type})`}
+                size="small"
+                color={view.isCompleted ? 'success' : view.viewedAt ? 'info' : 'default'}
+                variant="outlined"
+              />
+            ))}
+            {quizSubmissions.map(sub => (
+              <Chip
+                key={sub._id}
+                icon={getStatusIcon(sub, 'quiz')}
+                label={`${sub.quiz.title} (${getStatusText(sub, 'quiz')})`}
+                size="small"
+                color={sub.isCompleted ? 'success' : 'default'}
+                variant="outlined"
+              />
+            ))}
+          </Box>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  const renderOverviewTab = () => (
+    <Box sx={{ p: 3 }}>
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={1}>
+                <AssignmentIcon color="primary" sx={{ mr: 1 }} />
+                <Typography variant="h6">My Quizzes</Typography>
+              </Box>
+              <Typography variant="h4" color="primary">{stats.totalQuizzes}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={1}>
+                <VideoLibraryIcon color="secondary" sx={{ mr: 1 }} />
+                <Typography variant="h6">My Content</Typography>
+              </Box>
+              <Typography variant="h4" color="secondary">{stats.totalContent}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={1}>
+                <PeopleIcon color="info" sx={{ mr: 1 }} />
+                <Typography variant="h6">Connected Students</Typography>
+              </Box>
+              <Typography variant="h4" color="info.main">{stats.connectedStudents}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={1}>
+                <PersonAddIcon color="warning" sx={{ mr: 1 }} />
+                <Typography variant="h6">Pending Requests</Typography>
+              </Box>
+              <Typography variant="h4" color="warning.main">{stats.pendingRequests}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Quick Actions */}
+      <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+        Quick Actions
+      </Typography>
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <AddIcon color="primary" sx={{ mr: 1 }} />
+                <Typography variant="h6">Create Quiz</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Create a new quiz for your students
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button size="small" variant="contained" fullWidth onClick={handleCreateQuiz}>
+                Create Quiz
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <VideoLibraryIcon color="secondary" sx={{ mr: 1 }} />
+                <Typography variant="h6">Create Content</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Upload videos, documents, or links
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button size="small" variant="contained" fullWidth onClick={handleCreateContent}>
+                Create Content
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <PersonAddIcon color="info" sx={{ mr: 1 }} />
+                <Typography variant="h6">Manage Assignments</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Assign quizzes and content to students
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button size="small" variant="contained" fullWidth onClick={handleManageAssignments}>
+                Manage
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <PeopleIcon color="success" sx={{ mr: 1 }} />
+                <Typography variant="h6">View Students</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                See all connected students
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button size="small" variant="contained" fullWidth onClick={handleViewStudents}>
+                View Students
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Recent Activity */}
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Recent Quizzes</Typography>
+              <Button variant="outlined" size="small" onClick={() => navigate('/quizzes')}>
+                View All
+              </Button>
+            </Box>
+            <List>
+              {recentQuizzes.length > 0 ? (
+                recentQuizzes.map((quiz) => (
+                  <React.Fragment key={quiz._id}>
+                    <ListItem>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          <AssignmentIcon />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={quiz.title}
+                        secondary={`${quiz.questions?.length || 0} questions • ${new Date(quiz.createdAt).toLocaleDateString()}`}
+                      />
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                  No quizzes created yet
+                </Typography>
+              )}
+            </List>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Recent Content</Typography>
+              <Button variant="outlined" size="small" onClick={() => navigate('/content')}>
+                View All
+              </Button>
+            </Box>
+            <List>
+              {recentContent.length > 0 ? (
+                recentContent.map((content) => (
+                  <React.Fragment key={content._id}>
+                    <ListItem>
+                      <ListItemAvatar>
+                        <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                          <VideoLibraryIcon />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={content.title}
+                        secondary={`${content.type} • ${new Date(content.createdAt).toLocaleDateString()}`}
+                      />
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                  No content created yet
+                </Typography>
+              )}
+            </List>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -135,265 +421,103 @@ const InstructorDashboardPage = () => {
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
-        {/* Stats Cards */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <AssignmentIcon color="primary" />
-                <Typography variant="h6" sx={{ ml: 1 }}>
-                  My Quizzes
-                </Typography>
-              </Box>
-              <Typography variant="h3" color="primary">
-                {stats.totalQuizzes}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <PeopleIcon color="success" />
-                <Typography variant="h6" sx={{ ml: 1 }}>
-                  Total Students
-                </Typography>
-              </Box>
-              <Typography variant="h3" color="success.main">
-                {stats.totalStudents}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      <Paper sx={{ mb: 3 }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={activeTab} onChange={handleTabChange}>
+            <Tab label="Overview" />
+            <Tab label="Student Progress" />
+            <Tab label="Detailed View" />
+          </Tabs>
+        </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <SchoolIcon color="info" />
-                <Typography variant="h6" sx={{ ml: 1 }}>
-                  Avg Score
-                </Typography>
-              </Box>
-              <Typography variant="h3" color="info.main">
-                {stats.averageScore}%
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {activeTab === 0 && renderOverviewTab()}
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <TrendingUpIcon color="secondary" />
-                <Typography variant="h6" sx={{ ml: 1 }}>
-                  Completion Rate
-                </Typography>
-              </Box>
-              <Typography variant="h3" color="secondary.main">
-                {stats.completionRate}%
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {activeTab === 1 && (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Student</TableCell>
+                  <TableCell>Total Assignments</TableCell>
+                  <TableCell>Completed</TableCell>
+                  <TableCell>Details</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {studentProgress.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center">
+                      <Typography variant="body1" color="text.secondary" sx={{ py: 4 }}>
+                        No students assigned to your content yet.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  studentProgress.map(renderStudentRow)
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
-        {/* Content Tabs */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3 }}>
-            <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
-              <Tab label="My Quizzes" />
-              <Tab label="My Content" />
-            </Tabs>
-
-            {activeTab === 0 && (
-              <>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">My Quizzes</Typography>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => navigate('/quizzes')}
-                  >
-                    View All
-                  </Button>
-                </Box>
-                <List>
-                  {myQuizzes.length > 0 ? (
-                    myQuizzes.map((quiz) => (
-                      <React.Fragment key={quiz._id}>
-                        <ListItem
-                          secondaryAction={
-                            <IconButton onClick={() => handleViewQuiz(quiz._id)}>
-                              <MoreVertIcon />
-                            </IconButton>
-                          }
-                        >
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: 'primary.main' }}>
-                              {quiz.title.charAt(0)}
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={quiz.title}
-                            secondary={`${quiz.questions?.length || 0} questions • Created: ${new Date(quiz.createdAt).toLocaleDateString()}`}
-                          />
-                          <Chip
-                            label={`${quiz.attempts || 0} attempts`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        </ListItem>
-                        <Divider />
-                      </React.Fragment>
-                    ))
-                  ) : (
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                      No quizzes created yet
-                    </Typography>
-                  )}
-                </List>
-              </>
-            )}
-
-            {activeTab === 1 && (
-              <>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">My Content</Typography>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => navigate('/content')}
-                  >
-                    View All
-                  </Button>
-                </Box>
-                <List>
-                  {myContent.length > 0 ? (
-                    myContent.map((content) => (
-                      <React.Fragment key={content._id}>
-                        <ListItem
-                          secondaryAction={
-                            <IconButton onClick={() => handleViewContent(content._id)}>
-                              <MoreVertIcon />
-                            </IconButton>
-                          }
-                        >
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                              {getContentIcon(content.type)}
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={content.title}
-                            secondary={`${getContentTypeLabel(content.type)} • Created: ${new Date(content.createdAt).toLocaleDateString()}`}
-                          />
-                          <Chip
-                            label={`${content.allowedStudents?.length || 0} students`}
-                            size="small"
-                            color="secondary"
-                            variant="outlined"
-                          />
-                        </ListItem>
-                        <Divider />
-                      </React.Fragment>
-                    ))
-                  ) : (
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                      No content created yet
-                    </Typography>
-                  )}
-                </List>
-              </>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Quick Actions */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
+        {activeTab === 2 && (
+          <Box sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Quick Actions
+              Detailed Progress View
             </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Button
-                variant="contained"
-                fullWidth
-                startIcon={<AddIcon />}
-                onClick={handleCreateQuiz}
-                sx={{ justifyContent: 'flex-start' }}
-              >
-                Create New Quiz
-              </Button>
-              <Button
-                variant="contained"
-                fullWidth
-                startIcon={<VideoLibraryIcon />}
-                onClick={handleCreateContent}
-                sx={{ justifyContent: 'flex-start' }}
-              >
-                Create Content
-              </Button>
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<AnalyticsIcon />}
-                onClick={handleViewAnalytics}
-                sx={{ justifyContent: 'flex-start' }}
-              >
-                View Analytics
-              </Button>
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<PeopleIcon />}
-                onClick={() => navigate('/manage-assignments')}
-                sx={{ justifyContent: 'flex-start' }}
-              >
-                Manage Assignments
-              </Button>
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<PeopleIcon />}
-                onClick={() => navigate('/students')}
-                sx={{ justifyContent: 'flex-start' }}
-              >
-                Manage Students
-              </Button>
-              <Button
-                variant="outlined"
-                fullWidth
-                onClick={() => navigate('/profile')}
-                sx={{ justifyContent: 'flex-start' }}
-              >
-                Edit Profile
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+            {studentProgress.map(progress => (
+              <Card key={progress.student._id} sx={{ mb: 2 }}>
+                <CardContent>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <Avatar sx={{ mr: 2 }}>
+                      {progress.student.profile?.firstName?.charAt(0) || progress.student.username?.charAt(0)}
+                    </Avatar>
+                    <Typography variant="h6">
+                      {progress.student.profile?.firstName} {progress.student.profile?.lastName} ({progress.student.username})
+                    </Typography>
+                  </Box>
 
-      {/* Connection Requests Section */}
-      <Box sx={{ mt: 4 }}>
-        <Paper sx={{ p: 3 }}>
-          <ConnectionRequests />
-        </Paper>
-      </Box>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Content Progress:
+                  </Typography>
+                  <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
+                    {progress.contentViews.map(view => (
+                      <Chip
+                        key={view._id}
+                        icon={getStatusIcon(view, 'content')}
+                        label={`${view.content.title} - ${getStatusText(view, 'content')}`}
+                        size="small"
+                        color={view.isCompleted ? 'success' : view.viewedAt ? 'info' : 'default'}
+                      />
+                    ))}
+                  </Box>
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="create quiz"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
-        onClick={handleCreateQuiz}
-      >
-        <AddIcon />
-      </Fab>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Quiz Progress:
+                  </Typography>
+                  <Box display="flex" flexWrap="wrap" gap={1}>
+                    {progress.quizSubmissions.map(sub => (
+                      <Chip
+                        key={sub._id}
+                        icon={getStatusIcon(sub, 'quiz')}
+                        label={`${sub.quiz.title} - ${getStatusText(sub, 'quiz')}`}
+                        size="small"
+                        color={sub.isCompleted ? 'success' : 'default'}
+                      />
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        )}
+      </Paper>
     </Container>
   );
 };

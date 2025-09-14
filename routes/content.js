@@ -1,5 +1,6 @@
- const express = require('express');
+const express = require('express');
 const Content = require('../models/Content');
+const ContentView = require('../models/ContentView');
 const { auth, authorize, checkApproved } = require('../middleware/auth');
 const path = require('path');
 
@@ -216,6 +217,118 @@ router.delete('/:id', auth, authorize('instructor'), checkApproved, async (req, 
 
     await Content.findByIdAndDelete(req.params.id);
     res.json({ message: 'Content deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Mark content as viewed (student only)
+router.post('/:id/view', auth, authorize('student'), async (req, res) => {
+  try {
+    const content = await Content.findById(req.params.id);
+
+    if (!content) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+
+    if (!content.allowedStudents.includes(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const view = await ContentView.findOneAndUpdate(
+      { content: req.params.id, student: req.user.id },
+      { viewedAt: new Date() },
+      { upsert: true, new: true }
+    );
+
+    res.json(view);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Mark content as completed (student only)
+router.post('/:id/complete', auth, authorize('student'), async (req, res) => {
+  try {
+    const content = await Content.findById(req.params.id);
+
+    if (!content) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+
+    if (!content.allowedStudents.includes(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const view = await ContentView.findOneAndUpdate(
+      { content: req.params.id, student: req.user.id },
+      { completedAt: new Date(), isCompleted: true },
+      { upsert: true, new: true }
+    );
+
+    res.json(view);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get student progress for instructor
+router.get('/progress/students', auth, authorize('instructor'), checkApproved, async (req, res) => {
+  try {
+    // Get all content created by this instructor
+    const content = await Content.find({ instructor: req.user.id }).select('_id title type');
+    const contentIds = content.map(c => c._id);
+
+    // Get all students assigned to any of this instructor's content
+    const assignedStudents = [...new Set(content.flatMap(c => c.allowedStudents))];
+
+    // Get views for this content
+    const views = await ContentView.find({ content: { $in: contentIds } })
+      .populate('student', 'username profile.firstName profile.lastName')
+      .populate('content', 'title type');
+
+    // Get quiz submissions for this instructor's quizzes
+    const QuizSubmission = require('../models/QuizSubmission');
+    const Quiz = require('../models/Quiz');
+    const quizzes = await Quiz.find({ instructor: req.user.id }).select('_id title');
+    const quizIds = quizzes.map(q => q._id);
+
+    const submissions = await QuizSubmission.find({ quiz: { $in: quizIds } })
+      .populate('student', 'username profile.firstName profile.lastName')
+      .populate('quiz', 'title');
+
+    // Organize by student
+    const studentProgress = {};
+
+    assignedStudents.forEach(studentId => {
+      studentProgress[studentId] = {
+        student: null,
+        contentViews: [],
+        quizSubmissions: []
+      };
+    });
+
+    views.forEach(view => {
+      const studentId = view.student._id.toString();
+      if (studentProgress[studentId]) {
+        studentProgress[studentId].contentViews.push(view);
+        if (!studentProgress[studentId].student) {
+          studentProgress[studentId].student = view.student;
+        }
+      }
+    });
+
+    submissions.forEach(sub => {
+      const studentId = sub.student._id.toString();
+      if (studentProgress[studentId]) {
+        studentProgress[studentId].quizSubmissions.push(sub);
+        if (!studentProgress[studentId].student) {
+          studentProgress[studentId].student = sub.student;
+        }
+      }
+    });
+
+    res.json(Object.values(studentProgress));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

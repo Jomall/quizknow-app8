@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -18,6 +17,7 @@ import {
   FormControlLabel,
   Switch,
 } from '@mui/material';
+import CustomDialog from '../common/CustomDialog';
 import {
   Add,
   Delete,
@@ -285,7 +285,7 @@ const QuestionBuilder = ({ question, onSave, onCancel }) => {
   };
 
   return (
-    <Dialog open={true} onClose={onCancel} maxWidth="md" fullWidth>
+    <CustomDialog open={true} onClose={onCancel} maxWidth="md" fullWidth>
       <DialogTitle>
         {question ? 'Edit Question' : 'Add New Question'}
       </DialogTitle>
@@ -362,7 +362,7 @@ const QuestionBuilder = ({ question, onSave, onCancel }) => {
           Save Question
         </Button>
       </DialogActions>
-    </Dialog>
+    </CustomDialog>
   );
 };
 
