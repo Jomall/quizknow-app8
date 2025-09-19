@@ -128,6 +128,18 @@ router.get('/progress', auth, authorize('student'), async (req, res) => {
   }
 });
 
+// Get instructor's content
+router.get('/my-content', auth, authorize('instructor'), checkApproved, async (req, res) => {
+  try {
+    const content = await Content.find({ instructor: req.user.id })
+      .sort({ createdAt: -1 });
+
+    res.json(content);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get single content by ID (for instructors and assigned students)
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -146,18 +158,6 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    res.json(content);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get instructor's content
-router.get('/my-content', auth, authorize('instructor'), checkApproved, async (req, res) => {
-  try {
-    const content = await Content.find({ instructor: req.user.id })
-      .sort({ createdAt: -1 });
-    
     res.json(content);
   } catch (error) {
     res.status(500).json({ message: error.message });

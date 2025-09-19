@@ -215,12 +215,20 @@ export const QuizProvider = ({ children }) => {
   const getAvailableQuizzes = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('Frontend: Fetching available quizzes for student');
+      console.log('Frontend: Token exists:', !!token);
+
       const response = await axios.get(`${API_BASE_URL}/quizzes/available`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
+      console.log('Frontend: Available quizzes response:', response.data);
+      console.log('Frontend: Number of quizzes received:', response.data.length);
+
       return response.data;
     } catch (error) {
-      console.error('Error fetching available quizzes:', error);
+      console.error('Frontend: Error fetching available quizzes:', error);
+      console.error('Frontend: Error response:', error.response?.data);
       return [];
     }
   };

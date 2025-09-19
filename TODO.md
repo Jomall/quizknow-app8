@@ -1,23 +1,25 @@
-# TODO: Fix Delete and Block User Functionality in Admin Dashboard
+# Quiz Publish Issue Fix
 
-## Information Gathered
-- AdminDashboardPage.jsx has delete and suspend buttons with handlers that call API endpoints
-- routes/users.js has DELETE /:id and PUT /suspend/:id routes implemented
-- Missing ContentView import in routes/users.js causes ReferenceError when deleting instructors
-- Frontend lacks user feedback for API call results
-- "Block" button refers to suspend functionality
+## Problem
+- Quiz creation and publish functionality not implemented in QuizCreator.jsx
+- Quizzes not saved/published to backend
+- Instructor dashboard shows 0 quizzes
+- Students don't receive quizzes
 
-## Plan
-- [x] Add missing ContentView import to routes/users.js
-- [x] Add success/error handling with alerts in AdminDashboardPage.jsx
-- [x] Restart server to apply backend changes
-- [ ] Test delete and suspend functionality
+## Tasks
+- [x] Add publishQuiz method to quizAPI.js
+- [x] Implement handleSaveQuiz in QuizCreator.jsx to save draft quiz
+- [x] Implement handlePublishQuiz in QuizCreator.jsx with student selection dialog
+- [x] Add StudentSelector component import and state for publish dialog
+- [x] Test publish flow and verify dashboard updates
+- [x] Verify students receive published quizzes
 
-## Dependent Files to be edited
-- quizknow-app4/routes/users.js
-- quizknow-app4/client/src/pages/AdminDashboardPage.jsx
+## Status
+Completed - Route ordering fix resolved the issue
 
-## Followup steps
-- Test delete user for student, instructor, admin roles
-- Test suspend/unsuspend user
-- Verify cascading deletes work correctly
+## Summary
+The main issue was in the backend routes/quizzes.js where the dynamic /:id route was defined before specific routes like /available, /pending, and /submitted. This caused Express to match route parameters like "available" as ObjectIds instead of the specific routes, resulting in 500 errors.
+
+By reordering the routes to place specific routes before the dynamic /:id route, the student dashboard can now correctly fetch assigned quizzes.
+
+The QuizCreator publish functionality was also implemented with student selection dialog.

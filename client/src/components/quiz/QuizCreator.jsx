@@ -16,6 +16,10 @@ import {
   Chip,
   IconButton,
   Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Add,
@@ -24,6 +28,8 @@ import {
   Publish,
 } from '@mui/icons-material';
 import QuestionBuilder from './QuestionBuilder';
+import StudentSelector from '../common/StudentSelector';
+import quizAPI from '../../services/quizAPI';
 
 const QuizCreator = () => {
   const [quiz, setQuiz] = useState({
@@ -44,6 +50,10 @@ const QuizCreator = () => {
 
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [editingQuestionIndex, setEditingQuestionIndex] = useState(null);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const handleQuizChange = (field, value) => {
     setQuiz(prev => ({
@@ -102,19 +112,54 @@ const QuizCreator = () => {
 
   const handleSaveQuiz = async () => {
     try {
-      // TODO: Implement save functionality
-      console.log('Saving quiz:', quiz);
+      setSaving(true);
+      if (quiz._id) {
+        const updatedQuiz = await quizAPI.updateQuiz(quiz._id, quiz);
+        setQuiz(updatedQuiz.data);
+      } else {
+        const createdQuiz = await quizAPI.createQuiz(quiz);
+        setQuiz(createdQuiz.data);
+      }
     } catch (error) {
       console.error('Error saving quiz:', error);
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handlePublishClick = () => {
+    setPublishDialogOpen(true);
+  };
+
+  const handlePublishDialogClose = () => {
+    setPublishDialogOpen(false);
+    setSelectedStudents([]);
+  };
+
+  const handlePublishStudentSelectionChange = (students) => {
+    setSelectedStudents(students);
   };
 
   const handlePublishQuiz = async () => {
     try {
-      // TODO: Implement publish functionality
-      console.log('Publishing quiz:', quiz);
+      setPublishing(true);
+      if (!quiz._id) {
+        // Save quiz first if not saved
+        const createdQuiz = await quizAPI.createQuiz(quiz);
+        setQuiz(createdQuiz.data);
+      }
+      // Ensure quiz._id is updated after save
+      const quizId = quiz._id || (createdQuiz && createdQuiz.data && createdQuiz.data._id);
+      if (!quizId) {
+        throw new Error('Quiz ID is missing after save');
+      }
+      await quizAPI.publishQuiz(quizId, selectedStudents);
+      setQuiz(prev => ({ ...prev, isPublished: true }));
+      setPublishDialogOpen(false);
     } catch (error) {
       console.error('Error publishing quiz:', error);
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -185,6 +230,9 @@ const QuizCreator = () => {
                     <Select
                       value={quiz.subject}
                       onChange={(e) => handleQuizChange('subject', e.target.value)}
+                      MenuProps={{
+                        disablePortal: true,
+                      }}
                     >
                       {subjects.map(subject => (
                         <MenuItem key={subject} value={subject}>{subject}</MenuItem>
@@ -317,10 +365,10 @@ const QuizCreator = () => {
               variant="contained"
               color="primary"
               startIcon={<Publish />}
-              onClick={handlePublishQuiz}
-              disabled={quiz.questions.length === 0 || !quiz.title}
+              onClick={handlePublishClick}
+              disabled={quiz.questions.length === 0 || !quiz.title || publishing}
             >
-              Publish Quiz
+              {publishing ? 'Publishing...' : 'Publish Quiz'}
             </Button>
           </Box>
         </CardContent>
@@ -336,6 +384,22 @@ const QuizCreator = () => {
           }}
         />
       )}
+
+      <Dialog open={publishDialogOpen} onClose={handlePublishDialogClose} maxWidth="md" fullWidth>
+        <DialogTitle>Publish Quiz to Students</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Select students to publish "{quiz.title}" to. This will make the quiz visible to the selected students.
+          </Typography>
+          <StudentSelector selectedStudents={selectedStudents} onSelectionChange={handlePublishStudentSelectionChange} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handlePublishDialogClose}>Cancel</Button>
+          <Button onClick={handlePublishQuiz} variant="contained" disabled={publishing}>
+            {publishing ? 'Publishing...' : 'Publish'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -43,12 +43,68 @@ router.get('/my-quizzes', auth, authorize('instructor'), checkApproved, async (r
   }
 });
 
+// Get available quizzes for student
+router.get('/available', auth, authorize('student'), async (req, res) => {
+  try {
+    console.log('Fetching available quizzes for student:', req.user.id);
+    console.log('Student role:', req.user.role);
+
+    const quizzes = await Quiz.find({
+      'students.student': req.user.id,
+      isPublished: true
+    })
+      .populate('instructor', 'username profile.firstName profile.lastName');
+
+    console.log('Found quizzes:', quizzes.length);
+    console.log('Quiz details:', quizzes.map(q => ({
+      id: q._id,
+      title: q.title,
+      isPublished: q.isPublished,
+      students: q.students.map(s => s.student.toString())
+    })));
+
+    res.json(quizzes);
+  } catch (error) {
+    console.error('Error fetching available quizzes:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get pending quizzes for student (assigned but not submitted)
+router.get('/pending', auth, authorize('student'), async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({
+      'students.student': req.user.id,
+      'students.submittedAt': { $exists: false },
+      isPublished: true
+    })
+      .populate('instructor', 'username profile.firstName profile.lastName');
+    res.json(quizzes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get submitted quizzes for student
+router.get('/submitted', auth, authorize('student'), async (req, res) => {
+  try {
+    const QuizSubmission = require('../models/QuizSubmission');
+    const submissions = await QuizSubmission.find({ student: req.user.id })
+      .populate('quiz', 'title instructor')
+      .populate('quiz.instructor', 'username profile.firstName profile.lastName')
+      .sort({ submittedAt: -1 });
+    res.json(submissions);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get quiz by ID
 router.get('/:id', async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id)
       .populate('instructor', 'username profile.firstName profile.lastName');
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -68,7 +124,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', auth, authorize('instructor'), checkApproved, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -93,7 +149,7 @@ router.put('/:id', auth, authorize('instructor'), checkApproved, async (req, res
 router.delete('/:id', auth, authorize('instructor'), checkApproved, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -165,49 +221,6 @@ router.post('/:id/publish', auth, authorize('instructor'), checkApproved, async 
     await quiz.save();
 
     res.json({ message: 'Quiz published successfully', quiz });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get available quizzes for student
-router.get('/available', auth, authorize('student'), async (req, res) => {
-  try {
-    const quizzes = await Quiz.find({
-      'students.student': req.user.id,
-      isPublished: true
-    })
-      .populate('instructor', 'username profile.firstName profile.lastName');
-    res.json(quizzes);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get pending quizzes for student (assigned but not submitted)
-router.get('/pending', auth, authorize('student'), async (req, res) => {
-  try {
-    const quizzes = await Quiz.find({
-      'students.student': req.user.id,
-      'students.submittedAt': { $exists: false },
-      isPublished: true
-    })
-      .populate('instructor', 'username profile.firstName profile.lastName');
-    res.json(quizzes);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get submitted quizzes for student
-router.get('/submitted', auth, authorize('student'), async (req, res) => {
-  try {
-    const QuizSubmission = require('../models/QuizSubmission');
-    const submissions = await QuizSubmission.find({ student: req.user.id })
-      .populate('quiz', 'title instructor')
-      .populate('quiz.instructor', 'username profile.firstName profile.lastName')
-      .sort({ submittedAt: -1 });
-    res.json(submissions);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

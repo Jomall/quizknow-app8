@@ -9,6 +9,7 @@ const quizAPI = {
   createQuiz: (quizData) => axios.post(`${API_BASE_URL}/quizzes`, quizData),
   updateQuiz: (id, quizData) => axios.put(`${API_BASE_URL}/quizzes/${id}`, quizData),
   deleteQuiz: (id) => axios.delete(`${API_BASE_URL}/quizzes/${id}`),
+  publishQuiz: (id, studentIds) => axios.post(`${API_BASE_URL}/quizzes/${id}/publish`, { studentIds }),
 
   // Quiz session endpoints
   startQuizSession: (quizId) => axios.post(`${API_BASE_URL}/quiz/${quizId}/start`),
