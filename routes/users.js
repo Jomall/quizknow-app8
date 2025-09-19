@@ -128,6 +128,42 @@ router.get('/stats', auth, authorize('instructor'), checkApproved, checkSuspende
   }
 });
 
+router.get('/quiz-stats', auth, authorize('student'), checkSuspended, async (req, res) => {
+  try {
+    console.log('Fetching quiz stats for student:', req.user.id);
+
+    // Count total assigned quizzes
+    const totalQuizzes = await Quiz.countDocuments({
+      'students.student': req.user.id,
+      isPublished: true
+    });
+
+    console.log('Total assigned quizzes:', totalQuizzes);
+
+    const submissions = await QuizSubmission.find({ student: req.user.id });
+    console.log('Total submissions:', submissions.length);
+
+    const completedQuizzes = submissions.filter(s => s.isCompleted).length;
+    const scores = submissions.filter(s => s.score !== undefined).map(s => s.score);
+    const averageScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    const totalTime = submissions.reduce((acc, s) => acc + (s.timeSpent || 0), 0);
+
+    const stats = {
+      totalQuizzes,
+      completedQuizzes,
+      averageScore,
+      totalTime
+    };
+
+    console.log('Quiz stats response:', stats);
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching quiz stats:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get user by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -233,26 +269,5 @@ router.delete('/:id', auth, authorize('admin'), checkSuspended, async (req, res)
 
 
 
-// Get quiz stats for student
-router.get('/quiz-stats', auth, authorize('student'), checkSuspended, async (req, res) => {
-  try {
-    const submissions = await QuizSubmission.find({ student: req.user.id });
-
-    const totalQuizzes = submissions.length;
-    const completedQuizzes = submissions.filter(s => s.isCompleted).length;
-    const scores = submissions.filter(s => s.score !== undefined).map(s => s.score);
-    const averageScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    const totalTime = submissions.reduce((acc, s) => acc + (s.timeSpent || 0), 0);
-
-    res.json({
-      totalQuizzes,
-      completedQuizzes,
-      averageScore,
-      totalTime
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
 
 module.exports = router;
