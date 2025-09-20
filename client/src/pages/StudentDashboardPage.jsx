@@ -47,6 +47,7 @@ const StudentDashboardPage = () => {
   const [availableQuizzes, setAvailableQuizzes] = useState([]);
   const [pendingQuizzes, setPendingQuizzes] = useState([]);
   const [submittedQuizzes, setSubmittedQuizzes] = useState([]);
+  const [completedQuizIds, setCompletedQuizIds] = useState(new Set());
   const [receivedContent, setReceivedContent] = useState([]);
   const [contentProgress, setContentProgress] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
@@ -123,6 +124,7 @@ const StudentDashboardPage = () => {
       setAvailableQuizzes(available.slice(0, 5));
       setPendingQuizzes(pending.slice(0, 5));
       setSubmittedQuizzes(submitted.slice(0, 5));
+      setCompletedQuizIds(new Set(submitted.map(s => s.quiz._id)));
       setReceivedContent(content.slice(0, 5));
       setContentProgress(progress.slice(0, 5));
       setSentRequests(sentReqs);
@@ -273,33 +275,41 @@ const StudentDashboardPage = () => {
             </Box>
             <List>
               {availableQuizzes.length > 0 ? (
-                availableQuizzes.map((quiz) => (
-                  <React.Fragment key={quiz._id}>
-                    <ListItem
-                      secondaryAction={
-                        <Button
-                          variant="contained"
-                          size="small"
-                          startIcon={<PlayArrowIcon />}
-                          onClick={() => handleTakeQuiz(quiz._id)}
-                        >
-                          Take Quiz
-                        </Button>
-                      }
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
-                          {quiz.title.charAt(0)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={quiz.title}
-                        secondary={`${quiz.questions?.length || 0} questions • ${quiz.timeLimit || 'No limit'}`}
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
-                ))
+                availableQuizzes.map((quiz) => {
+                  const isCompleted = completedQuizIds.has(quiz._id);
+                  return (
+                    <React.Fragment key={quiz._id}>
+                      <ListItem
+                        secondaryAction={
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<PlayArrowIcon />}
+                            onClick={() => isCompleted ? navigate(`/quiz/${quiz._id}/results`) : handleTakeQuiz(quiz._id)}
+                          >
+                            {isCompleted ? 'View Results' : 'Take Quiz'}
+                          </Button>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'primary.main' }}>
+                            {quiz.title.charAt(0)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {quiz.title}
+                              {isCompleted && <Chip label="Completed" color="success" size="small" />}
+                            </Box>
+                          }
+                          secondary={`${quiz.questions?.length || 0} questions • ${quiz.timeLimit || 'No limit'}`}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  );
+                })
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
                   No quizzes available at the moment
@@ -334,7 +344,7 @@ const StudentDashboardPage = () => {
                           startIcon={<PlayArrowIcon />}
                           onClick={() => handleTakeQuiz(quiz._id)}
                         >
-                          Take Quiz
+                          Waiting for Review
                         </Button>
                       }
                     >

@@ -83,17 +83,52 @@ const CreateQuizPage = () => {
         isPublished: true,
         questions: quizData.questions.map(q => {
           const { isRequired, ...cleanQuestion } = q;
+          // Ensure options is an array or remove it
+          if (cleanQuestion.options && !Array.isArray(cleanQuestion.options)) {
+            delete cleanQuestion.options;
+          }
           if (q.type === 'multiple-choice') {
             return {
               ...cleanQuestion,
-              options: q.options.map(option => ({
+              options: (q.options || []).map(option => ({
                 text: option,
                 isCorrect: option === q.correctAnswer,
                 explanation: ''
               }))
             };
+          } else if (q.type === 'select-all') {
+            return {
+              ...cleanQuestion,
+              options: (q.options || []).map(option => ({
+                text: option,
+                isCorrect: Array.isArray(q.correctAnswer) && q.correctAnswer.includes(option),
+                explanation: ''
+              }))
+            };
+          } else if (q.type === 'matching') {
+            // For matching, options are terms, correctAnswer are definitions
+            return {
+              ...cleanQuestion,
+              options: (q.options || []).map((term, index) => ({
+                text: term,
+                isCorrect: true, // All terms are correct in matching
+                explanation: q.correctAnswer[index] || ''
+              }))
+            };
+          } else if (q.type === 'ordering') {
+            return {
+              ...cleanQuestion,
+              options: (q.options || []).map(option => ({
+                text: option,
+                isCorrect: true, // All items are correct in ordering
+                explanation: ''
+              }))
+            };
+          } else {
+            // For question types that don't use options, remove the options field
+            const { options, ...questionWithoutOptions } = cleanQuestion;
+            return questionWithoutOptions;
           }
-          return cleanQuestion;
         })
       };
       // Remove timeLimit from root level

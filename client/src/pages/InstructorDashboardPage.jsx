@@ -29,6 +29,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  IconButton,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -45,6 +46,7 @@ import {
   PlayArrow as PlayArrowIcon,
   ExpandMore as ExpandMoreIcon,
   Assessment as AssessmentIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -165,6 +167,18 @@ const InstructorDashboardPage = () => {
 
   const handleViewStudents = () => {
     navigate('/students');
+  };
+
+  const handleDeleteQuiz = async (quizId) => {
+    if (window.confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
+      try {
+        await quizAPI.deleteQuiz(quizId);
+        loadDashboardData(); // Refresh the dashboard data
+      } catch (error) {
+        console.error('Error deleting quiz:', error);
+        setError('Failed to delete quiz');
+      }
+    }
   };
 
   const getStatusIcon = (item, type) => {
@@ -539,7 +553,13 @@ const InstructorDashboardPage = () => {
               {recentQuizzes.length > 0 ? (
                 recentQuizzes.map((quiz) => (
                   <React.Fragment key={quiz._id}>
-                    <ListItem>
+                    <ListItem
+                      secondaryAction={
+                        <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteQuiz(quiz._id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      }
+                    >
                       <ListItemAvatar>
                         <Avatar sx={{ bgcolor: 'primary.main' }}>
                           <AssignmentIcon />

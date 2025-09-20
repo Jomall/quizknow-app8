@@ -70,12 +70,18 @@ router.get('/available', auth, authorize('student'), async (req, res) => {
   }
 });
 
-// Get pending quizzes for student (assigned but not submitted)
+// Get pending quizzes for student (submitted but not reviewed)
 router.get('/pending', auth, authorize('student'), async (req, res) => {
   try {
+    // Find submissions that are not completed
+    const pendingSubmissionQuizzes = await QuizSubmission.find({
+      student: req.user.id,
+      isCompleted: false
+    }).distinct('quiz');
+
     const quizzes = await Quiz.find({
+      _id: { $in: pendingSubmissionQuizzes },
       'students.student': req.user.id,
-      'students.submittedAt': { $exists: false },
       isPublished: true
     })
       .populate('instructor', 'username profile.firstName profile.lastName');
