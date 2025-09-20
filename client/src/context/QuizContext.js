@@ -95,8 +95,10 @@ export const QuizProvider = ({ children }) => {
       const response = await quizAPI.startQuizSession(quizId);
       dispatch({ type: ACTIONS.SET_SESSION, payload: response.data });
       dispatch({ type: ACTIONS.SET_TIME_REMAINING, payload: response.data.timeRemaining });
+      return response.data;
     } catch (error) {
       dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
+      throw error;
     }
   };
 
@@ -259,6 +261,16 @@ export const QuizProvider = ({ children }) => {
     }
   };
 
+  const getAllQuizzes = async () => {
+    dispatch({ type: ACTIONS.SET_LOADING, payload: true });
+    try {
+      const response = await quizAPI.getAllQuizzes();
+      dispatch({ type: ACTIONS.SET_QUIZZES, payload: response.data.quizzes || response.data });
+    } catch (error) {
+      dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
+    }
+  };
+
   const value = {
     ...state,
     fetchQuizzes,
@@ -274,6 +286,7 @@ export const QuizProvider = ({ children }) => {
     getAvailableQuizzes,
     getPendingQuizzes,
     getSubmittedQuizzes,
+    getAllQuizzes,
   };
 
   return <QuizContext.Provider value={value}>{children}</QuizContext.Provider>;

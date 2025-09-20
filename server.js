@@ -72,7 +72,7 @@ app.set('upload', upload);
 // Database connection
 async function connectDB() {
   try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/quizknow-app4';
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/quizknow';
     console.log('Connecting to MongoDB at:', mongoUri);
     
     await mongoose.connect(mongoUri, {
@@ -90,6 +90,10 @@ async function connectDB() {
 
 async function startServer() {
   await connectDB();
+
+  // Ensure indexes are created
+  const User = require('./models/User');
+  await User.syncIndexes();
 
   // Import routes after DB connection
   const authRoutes = require('./routes/auth');

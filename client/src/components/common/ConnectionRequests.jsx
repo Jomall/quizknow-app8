@@ -29,7 +29,7 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
-const ConnectionRequests = () => {
+const ConnectionRequests = ({ onRequestProcessed }) => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -92,6 +92,9 @@ const ConnectionRequests = () => {
       );
 
       setConfirmDialog({ open: false, action: null, request: null });
+
+      // Notify parent to reload dashboard data
+      if (onRequestProcessed) onRequestProcessed();
     } catch (error) {
       console.error('Error processing request:', error);
       setError(`Failed to ${confirmDialog.action} request`);

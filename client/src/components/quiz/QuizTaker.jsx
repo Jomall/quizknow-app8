@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuiz } from '../../context/QuizContext';
 import QuestionRenderer from './QuestionRenderer';
 import ProgressBar from './ProgressBar';
@@ -28,6 +29,7 @@ const QuizTaker = ({ quizId }) => {
     submitQuiz,
   } = useQuiz();
 
+  const navigate = useNavigate();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
@@ -97,7 +99,12 @@ const QuizTaker = ({ quizId }) => {
             <Typography variant="body1">
               Thank you for completing the quiz. Your results will be available shortly.
             </Typography>
-            <Button variant="contained" color="primary" sx={{ mt: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              sx={{ mt: 2 }}
+              onClick={() => navigate(`/quiz/${currentQuiz._id}/results`)}
+            >
               View Results
             </Button>
           </CardContent>

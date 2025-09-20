@@ -1,26 +1,43 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Register
-router.post('/register', async (req, res) => {
+router.post('/register', [
+  body('firstName').notEmpty().withMessage('First name is required'),
+  body('lastName').notEmpty().withMessage('Last name is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('role').isIn(['student', 'instructor', 'admin']).withMessage('Valid role is required')
+], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg });
+    }
+
     const { firstName, lastName, email, password, role, institution } = req.body;
 
     // Generate username from first and last name
     const username = `${firstName.toLowerCase()}${lastName.toLowerCase()}`.replace(/\s+/g, '');
 
-    // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [{ email: email.toLowerCase() }, { username }]
-    });
-
-    if (existingUser) {
+    // Check if email already exists
+    const existingEmail = await User.findOne({ email: email.toLowerCase() });
+    if (existingEmail) {
       return res.status(400).json({
-        message: 'User already exists with this email or username'
+        message: 'Email already exists'
+      });
+    }
+
+    // Check if username already exists
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(400).json({
+        message: 'Username already exists'
       });
     }
 
@@ -73,15 +90,18 @@ router.post('/login', async (req, res) => {
 
     // Validate input
     if (!email || !email.trim()) {
-      return res.status(400).json({ message: 'Email is required' });
+      return res.status(400).json({ message: 'Email or username is required' });
     }
 
     if (!password) {
       return res.status(400).json({ message: 'Password is required' });
     }
 
-    // Find user
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    // Find user by email or username
+    const identifier = email.toLowerCase().trim();
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { username: identifier }]
+    });
     if (!user) {
       return res.status(400).json({ message: 'User not found' });
     }

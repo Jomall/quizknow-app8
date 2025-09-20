@@ -132,6 +132,7 @@ router.get('/progress', auth, authorize('student'), async (req, res) => {
 router.get('/my-content', auth, authorize('instructor'), checkApproved, async (req, res) => {
   try {
     const content = await Content.find({ instructor: req.user.id })
+      .populate('allowedStudents', 'username profile.firstName profile.lastName')
       .sort({ createdAt: -1 });
 
     res.json(content);

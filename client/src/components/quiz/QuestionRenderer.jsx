@@ -31,10 +31,10 @@ const QuestionRenderer = ({ question, questionIndex, totalQuestions, currentAnsw
             >
               {question.options.map((option, index) => (
                 <FormControlLabel
-                  key={index}
-                  value={option}
+                  key={option._id || index}
+                  value={option.text}
                   control={<Radio />}
-                  label={option}
+                  label={option.text}
                 />
               ))}
             </RadioGroup>
@@ -66,19 +66,19 @@ const QuestionRenderer = ({ question, questionIndex, totalQuestions, currentAnsw
             <FormGroup>
               {question.options.map((option, index) => (
                 <FormControlLabel
-                  key={index}
+                  key={option._id || index}
                   control={
                     <Checkbox
-                      checked={currentAnswer?.includes(option) || false}
+                      checked={currentAnswer?.includes(option.text) || false}
                       onChange={(e) => {
                         const newAnswer = e.target.checked
-                          ? [...(currentAnswer || []), option]
-                          : (currentAnswer || []).filter(item => item !== option);
+                          ? [...(currentAnswer || []), option.text]
+                          : (currentAnswer || []).filter(item => item !== option.text);
                         handleAnswerChange(newAnswer);
                       }}
                     />
                   }
-                  label={option}
+                  label={option.text}
                 />
               ))}
             </FormGroup>

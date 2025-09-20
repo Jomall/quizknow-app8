@@ -48,6 +48,9 @@ const quizSessionSchema = new mongoose.Schema({
     enum: ['active', 'completed', 'expired', 'abandoned'],
     default: 'active'
   },
+  reviewedAt: {
+    type: Date
+  },
   attemptNumber: {
     type: Number,
     default: 1

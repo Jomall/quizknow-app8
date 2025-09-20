@@ -37,7 +37,7 @@ async function startServer() {
     console.log('Starting MongoDB Memory Server...');
     mongoServer = await MongoMemoryServer.create({
       instance: {
-        dbName: 'quizknow_test',
+        dbName: 'quizknow-app6mongoDB',
         port: 27017,
       },
       binary: {
@@ -47,9 +47,8 @@ async function startServer() {
         arch: 'x64',
         skipMD5: true,
       },
-      autoStart: false,
     });
-    
+
     mongoUri = mongoServer.getUri();
     console.log('MongoDB Memory Server URI:', mongoUri);
     

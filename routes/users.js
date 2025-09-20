@@ -267,7 +267,4 @@ router.delete('/:id', auth, authorize('admin'), checkSuspended, async (req, res)
   }
 });
 
-
-
-
 module.exports = router;

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Quiz = require('../models/Quiz');
 const QuizSession = require('../models/QuizSession');
+const QuizSubmission = require('../models/QuizSubmission');
 const { auth } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
 
@@ -200,11 +201,55 @@ router.post('/:id/assign', auth, async (req, res) => {
   }
 });
 
+// Get quiz submissions for review (instructor only)
+router.get('/:id/submissions', auth, async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+
+    if (quiz.instructor.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to view submissions' });
+    }
+
+    const sessions = await QuizSession.find({
+      quiz: req.params.id,
+      status: 'completed'
+    })
+      .populate('student', 'username profile.firstName profile.lastName')
+      .sort({ endTime: -1 });
+
+    const submissions = sessions.map(session => ({
+      _id: session._id,
+      student: session.student,
+      score: session.score,
+      maxScore: session.maxScore,
+      percentage: Math.round((session.score / session.maxScore) * 100),
+      submittedAt: session.endTime,
+      timeSpent: Math.round((session.endTime - session.startTime) / 60000), // minutes
+      answers: session.answers
+    }));
+
+    res.json({
+      quiz: {
+        _id: quiz._id,
+        title: quiz.title,
+        totalPoints: quiz.totalPoints
+      },
+      submissions
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get quiz analytics
 router.get('/:id/analytics', auth, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -233,6 +278,52 @@ router.get('/:id/analytics', auth, async (req, res) => {
     };
 
     res.json(analytics);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Start quiz session
+router.post('/:id/start', auth, async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id)
+      .populate('instructor', 'name email');
+
+    if (!quiz) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+
+    // Check permissions
+    const isInstructor = quiz.instructor._id.toString() === req.user.id;
+    const isAssigned = quiz.students.some(s =>
+      s.student.toString() === req.user.id
+    );
+
+    if (!isInstructor && !isAssigned) {
+      return res.status(403).json({ message: 'Not assigned to this quiz' });
+    }
+
+    if (!quiz.isPublished && !isInstructor) {
+      return res.status(403).json({ message: 'Quiz is not published' });
+    }
+
+    // Create quiz session
+    const session = new QuizSession({
+      quiz: req.params.id,
+      student: req.user.id,
+      startedAt: new Date(),
+      timeLimit: quiz.settings?.timeLimit || 60,
+      maxScore: quiz.totalPoints || 0
+    });
+    await session.save();
+
+    res.json({
+      _id: session._id,
+      quiz: quiz._id,
+      student: req.user.id,
+      startedAt: session.startedAt,
+      timeRemaining: (quiz.settings?.timeLimit || 60) * 60 // timeLimit in minutes
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -315,6 +406,150 @@ router.get('/:id/take', auth, async (req, res) => {
       },
       questions
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update answer for a question in session
+router.put('/:id/session/:sessionId/answer', auth, async (req, res) => {
+  try {
+    const { questionId, answer } = req.body;
+
+    const session = await QuizSession.findById(req.params.sessionId);
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    if (session.student.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (session.status !== 'active') {
+      return res.status(400).json({ message: 'Session is not active' });
+    }
+
+    // Check if answer already exists, update it
+    const existingAnswerIndex = session.answers.findIndex(a => a.questionId.toString() === questionId);
+    if (existingAnswerIndex >= 0) {
+      session.answers[existingAnswerIndex].answer = answer;
+      session.answers[existingAnswerIndex].answeredAt = new Date();
+    } else {
+      session.answers.push({
+        questionId,
+        answer,
+        answeredAt: new Date()
+      });
+    }
+
+    await session.save();
+    res.json({ message: 'Answer updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Submit quiz
+router.post('/:id/submit', auth, async (req, res) => {
+  try {
+    const { sessionId, answers } = req.body;
+
+    const session = await QuizSession.findById(sessionId).populate('quiz');
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    if (session.student.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (session.status !== 'active') {
+      return res.status(400).json({ message: 'Session is not active' });
+    }
+
+    // Update answers
+    answers.forEach(({ questionId, answer }) => {
+      const existingAnswerIndex = session.answers.findIndex(a => a.questionId.toString() === questionId);
+      if (existingAnswerIndex >= 0) {
+        session.answers[existingAnswerIndex].answer = answer;
+        session.answers[existingAnswerIndex].answeredAt = new Date();
+      } else {
+        session.answers.push({
+          questionId,
+          answer,
+          answeredAt: new Date()
+        });
+      }
+    });
+
+    // Calculate score
+    let totalScore = 0;
+    session.answers.forEach(ans => {
+      const question = session.quiz.questions.find(q => q._id.toString() === ans.questionId.toString());
+      if (question) {
+        // Simple scoring - check if answer matches correct answer
+        if (question.correctAnswer === ans.answer) {
+          ans.isCorrect = true;
+          ans.points = question.points || 1;
+          totalScore += ans.points;
+        } else {
+          ans.isCorrect = false;
+          ans.points = 0;
+        }
+      }
+    });
+
+    session.score = totalScore;
+    session.status = 'completed';
+    session.endTime = new Date();
+
+    await session.save();
+
+    res.json({
+      message: 'Quiz submitted successfully',
+      score: session.score,
+      maxScore: session.maxScore,
+      percentage: Math.round((session.score / session.maxScore) * 100)
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Mark quiz session as reviewed (instructor only)
+router.put('/:id/session/:sessionId/review', auth, async (req, res) => {
+  try {
+    const session = await QuizSession.findById(req.params.sessionId);
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+
+    if (quiz.instructor.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    session.reviewedAt = new Date();
+    await session.save();
+
+    // Also mark the corresponding QuizSubmission as completed
+    const submission = await QuizSubmission.findOne({
+      quiz: req.params.id,
+      student: session.student
+    });
+
+    if (submission) {
+      submission.isCompleted = true;
+      submission.reviewedAt = new Date();
+      await submission.save();
+    }
+
+    res.json({ message: 'Session marked as reviewed' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

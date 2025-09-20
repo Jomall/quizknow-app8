@@ -152,6 +152,22 @@ router.get('/sent-requests', auth, async (req, res) => {
   }
 });
 
+// Get accepted connections (for instructor dashboard)
+router.get('/accepted-connections', auth, checkApproved, async (req, res) => {
+  try {
+    const acceptedConnections = await Connection.find({
+      receiver: req.user.id,
+      status: 'accepted'
+    })
+    .populate('sender', 'username profile.firstName profile.lastName profile.avatar role')
+    .sort({ updatedAt: -1 });
+
+    res.json(acceptedConnections);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Remove connection
 router.delete('/:id', auth, async (req, res) => {
   try {

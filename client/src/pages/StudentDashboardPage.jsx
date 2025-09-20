@@ -56,6 +56,8 @@ const StudentDashboardPage = () => {
     averageScore: 0,
     totalTime: 0,
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const { user } = useAuth();
   const { getUserQuizzes, getQuizStats, getAvailableQuizzes, getPendingQuizzes, getSubmittedQuizzes } = useQuiz();
@@ -105,6 +107,7 @@ const StudentDashboardPage = () => {
 
   const loadDashboardData = async () => {
     try {
+      setLoading(true);
       const [quizzes, statsData, available, pending, submitted, content, progress, sentReqs] = await Promise.all([
         getUserQuizzes(),
         getQuizStats(),
@@ -125,6 +128,9 @@ const StudentDashboardPage = () => {
       setSentRequests(sentReqs);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -514,7 +520,18 @@ const StudentDashboardPage = () => {
                       </ListItemAvatar>
                       <ListItemText
                         primary={`Request to ${request.receiver?.profile?.firstName || request.receiver?.username}`}
-                        secondary={`Sent on ${new Date(request.createdAt).toLocaleDateString()} • Status: Pending`}
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Sent on {new Date(request.createdAt).toLocaleDateString()} • Status: Pending
+                            </Typography>
+                            {request.message && (
+                              <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                                "{request.message}"
+                              </Typography>
+                            )}
+                          </Box>
+                        }
                       />
                     </ListItem>
                     <Divider />

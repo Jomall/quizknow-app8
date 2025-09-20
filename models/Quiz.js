@@ -120,6 +120,10 @@ const quizSchema = new mongoose.Schema({
     certificateEnabled: {
       type: Boolean,
       default: false
+    },
+    requireManualReview: {
+      type: Boolean,
+      default: true
     }
   },
   isPublished: {

@@ -17,10 +17,10 @@ router.post('/', auth, checkApproved, async (req, res) => {
     }
 
     // Check if student is assigned to this quiz
-    const isAssigned = quiz.students.some(s => 
+    const isAssigned = quiz.students.some(s =>
       s.student.toString() === req.user.id && !s.submittedAt
     );
-    
+
     if (!isAssigned) {
       return res.status(403).json({ message: 'Not assigned to this quiz' });
     }
@@ -28,13 +28,13 @@ router.post('/', auth, checkApproved, async (req, res) => {
     // Calculate score
     let score = 0;
     const totalQuestions = quiz.questions.length;
-    
+
     const submissionAnswers = answers.map(answer => {
       const question = quiz.questions.find(q => q._id.toString() === answer.questionId);
       const isCorrect = question && question.correctAnswer === answer.selectedAnswer;
-      
+
       if (isCorrect) score++;
-      
+
       return {
         questionId: answer.questionId,
         selectedAnswer: answer.selectedAnswer,
@@ -51,17 +51,25 @@ router.post('/', auth, checkApproved, async (req, res) => {
       answers: submissionAnswers,
       score,
       percentage,
+      maxScore: quiz.questions.reduce((total, q) => total + (q.points || 1), 0),
       totalQuestions
     });
 
     await submission.save();
 
     // Update quiz student record
-    const studentIndex = quiz.students.findIndex(s => 
+    const studentIndex = quiz.students.findIndex(s =>
       s.student.toString() === req.user.id
     );
     quiz.students[studentIndex].submittedAt = new Date();
     await quiz.save();
+
+    // Auto-complete if manual review not required
+    if (!quiz.settings.requireManualReview) {
+      submission.isCompleted = true;
+      submission.reviewedAt = new Date();
+      await submission.save();
+    }
 
     res.status(201).json({
       message: 'Quiz submitted successfully',
@@ -84,7 +92,7 @@ router.get('/my-submissions', auth, async (req, res) => {
       .populate('quiz', 'title instructor')
       .populate('quiz.instructor', 'username profile.firstName profile.lastName')
       .sort({ submittedAt: -1 });
-    
+
     res.json(submissions);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -95,7 +103,7 @@ router.get('/my-submissions', auth, async (req, res) => {
 router.get('/quiz/:quizId', auth, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.quizId);
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
@@ -128,12 +136,36 @@ router.get('/:id', auth, async (req, res) => {
     // Check if user has access
     const isStudent = submission.student._id.toString() === req.user.id;
     const isInstructor = submission.quiz.instructor.toString() === req.user.id;
-    
+
     if (!isStudent && !isInstructor) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     res.json(submission);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Mark submission as reviewed (instructor only)
+router.put('/:id/review', auth, async (req, res) => {
+  try {
+    const submission = await QuizSubmission.findById(req.params.id)
+      .populate('quiz');
+
+    if (!submission) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
+
+    if (submission.quiz.instructor.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    submission.reviewedAt = new Date();
+    submission.isCompleted = true;
+    await submission.save();
+
+    res.json({ message: 'Submission marked as reviewed' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

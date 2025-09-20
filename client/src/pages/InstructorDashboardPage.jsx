@@ -26,6 +26,9 @@ import {
   ListItemText,
   ListItemAvatar,
   Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -40,10 +43,13 @@ import {
   PersonAdd as PersonAddIcon,
   Schedule as ScheduleIcon,
   PlayArrow as PlayArrowIcon,
+  ExpandMore as ExpandMoreIcon,
+  Assessment as AssessmentIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ConnectionRequests from '../components/common/ConnectionRequests';
+import quizAPI from '../services/quizAPI';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -53,11 +59,13 @@ const InstructorDashboardPage = () => {
     totalQuizzes: 0,
     totalContent: 0,
     connectedStudents: 0,
+    assignedStudents: 0,
     pendingRequests: 0,
   });
   const [studentProgress, setStudentProgress] = useState([]);
   const [recentQuizzes, setRecentQuizzes] = useState([]);
   const [recentContent, setRecentContent] = useState([]);
+  const [quizSubmissions, setQuizSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
@@ -74,6 +82,30 @@ const InstructorDashboardPage = () => {
     }
   }, [user.isApproved, activeTab]);
 
+  useEffect(() => {
+    if (activeTab === 5) {
+      loadQuizSubmissions();
+    }
+  }, [activeTab, recentQuizzes]);
+
+  const loadQuizSubmissions = async () => {
+    try {
+      const submissionsData = {};
+      for (const quiz of recentQuizzes) {
+        try {
+          const response = await quizAPI.getQuizSubmissions(quiz._id);
+          submissionsData[quiz._id] = response.data.submissions;
+        } catch (error) {
+          console.error(`Error loading submissions for quiz ${quiz._id}:`, error);
+          submissionsData[quiz._id] = [];
+        }
+      }
+      setQuizSubmissions(submissionsData);
+    } catch (error) {
+      console.error('Error loading quiz submissions:', error);
+    }
+  };
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
@@ -85,6 +117,7 @@ const InstructorDashboardPage = () => {
 
       if (user.isApproved) {
         promises.push(axios.get(`${API_BASE_URL}/connections/pending-requests`));
+        promises.push(axios.get(`${API_BASE_URL}/connections/accepted-connections`));
       }
 
       const [quizzesRes, contentRes, progressRes, ...rest] = await Promise.all(promises);
@@ -93,15 +126,17 @@ const InstructorDashboardPage = () => {
       const content = contentRes.data;
       const progress = progressRes.data;
       const pendingRequests = user.isApproved ? rest[0]?.data || [] : [];
+      const acceptedConnections = user.isApproved ? rest[1]?.data || [] : [];
 
       setStats({
         totalQuizzes: quizzes.length,
         totalContent: content.length,
-        connectedStudents: progress.length,
+        connectedStudents: acceptedConnections.length,
+        assignedStudents: progress.length,
         pendingRequests: pendingRequests.length,
       });
 
-      setStudentProgress(progress);
+      setStudentProgress(progress.filter(p => p.student));
       setRecentQuizzes(quizzes.slice(0, 5));
       setRecentContent(content.slice(0, 5));
     } catch (err) {
@@ -125,7 +160,7 @@ const InstructorDashboardPage = () => {
   };
 
   const handleManageAssignments = () => {
-    navigate('/manage-assignments');
+    setActiveTab(4);
   };
 
   const handleViewStudents = () => {
@@ -209,6 +244,147 @@ const InstructorDashboardPage = () => {
     );
   };
 
+  const renderManageAssignmentsTab = () => (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Quiz Assignments
+      </Typography>
+      {recentQuizzes.map(quiz => (
+        <Card key={quiz._id} sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="h6">{quiz.title}</Typography>
+            <Typography variant="body2" color="text.secondary">Assigned Students:</Typography>
+            {quiz.students && quiz.students.length > 0 ? (
+              quiz.students.map(s => {
+                const student = s.student;
+                if (!student) return null;
+                const progress = studentProgress.find(p => p.student && p.student._id === student._id);
+                const submission = progress?.quizSubmissions.find(sub => sub.quiz._id === quiz._id);
+                return (
+                  <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                    <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
+                    <Chip label={submission ? `Submitted (${submission.score}%)` : 'Not Submitted'} color={submission ? 'success' : 'default'} size="small" />
+                  </Box>
+                );
+              }).filter(Boolean)
+            ) : (
+              <Typography variant="body2" color="text.secondary">No students assigned</Typography>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+      <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
+        Content Assignments
+      </Typography>
+      {recentContent.map(content => (
+        <Card key={content._id} sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="h6">{content.title} ({content.type})</Typography>
+            <Typography variant="body2" color="text.secondary">Assigned Students:</Typography>
+            {content.allowedStudents && content.allowedStudents.length > 0 ? (
+              content.allowedStudents.map(student => {
+                if (!student) return null;
+                const progress = studentProgress.find(p => p.student && p.student._id === student._id);
+                const view = progress?.contentViews.find(v => v.content._id === content._id);
+                return (
+                  <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                    <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
+                    <Chip label={view ? (view.isCompleted ? 'Completed' : 'Viewed') : 'Not Started'} color={view?.isCompleted ? 'success' : view?.viewedAt ? 'info' : 'default'} size="small" />
+                  </Box>
+                );
+              }).filter(Boolean)
+            ) : (
+              <Typography variant="body2" color="text.secondary">No students assigned</Typography>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </Box>
+  );
+
+  const renderReviewSubmissionsTab = () => (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h6" gutterBottom>
+        Quiz Submissions for Review
+      </Typography>
+      {recentQuizzes.length > 0 ? (
+        recentQuizzes.map(quiz => (
+          <Accordion key={quiz._id} sx={{ mb: 2 }}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls={`quiz-${quiz._id}-content`}
+              id={`quiz-${quiz._id}-header`}
+            >
+              <Box display="flex" alignItems="center" width="100%">
+                <AssessmentIcon sx={{ mr: 2 }} />
+                <Box flexGrow={1}>
+                  <Typography variant="h6">{quiz.title}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {quiz.questions?.length || 0} questions
+                  </Typography>
+                </Box>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="subtitle1" gutterBottom>
+                Student Submissions:
+              </Typography>
+              {quizSubmissions[quiz._id]?.length > 0 ? (
+                quizSubmissions[quiz._id].map(submission => (
+                  <Card key={submission._id} sx={{ mb: 1 }}>
+                    <CardContent sx={{ pb: 1 }}>
+                      <Box display="flex" justifyContent="space-between" alignItems="center">
+                        <Box display="flex" alignItems="center">
+                          <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                            {submission.student.profile?.firstName?.charAt(0) || submission.student.username?.charAt(0)}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="subtitle2">
+                              {submission.student.profile?.firstName} {submission.student.profile?.lastName}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {submission.student.username}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Box display="flex" alignItems="center" gap={2}>
+                          <Box textAlign="right">
+                            <Typography variant="body2" color="text.secondary">Score</Typography>
+                            <Typography variant="h6" color={submission.percentage >= 60 ? 'success.main' : 'error.main'}>
+                              {submission.percentage}%
+                            </Typography>
+                          </Box>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => navigate(`/quiz/${quiz._id}/submission/${submission._id}/review`)}
+                          >
+                            Review
+                          </Button>
+                        </Box>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Submitted: {new Date(submission.submittedAt).toLocaleString()}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No submissions yet
+                </Typography>
+              )}
+            </AccordionDetails>
+          </Accordion>
+        ))
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+          No quizzes available
+        </Typography>
+      )}
+    </Box>
+  );
+
   const renderOverviewTab = () => (
     <Box sx={{ p: 3 }}>
       {/* Stats Cards */}
@@ -232,6 +408,17 @@ const InstructorDashboardPage = () => {
                 <Typography variant="h6">My Content</Typography>
               </Box>
               <Typography variant="h4" color="secondary">{stats.totalContent}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={1}>
+                <SchoolIcon color="success" sx={{ mr: 1 }} />
+                <Typography variant="h6">Assigned Students</Typography>
+              </Box>
+              <Typography variant="h4" color="success.main">{stats.assignedStudents}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -446,6 +633,8 @@ const InstructorDashboardPage = () => {
             <Tab label="Student Progress" />
             <Tab label="Detailed View" />
             {user.isApproved && <Tab label="Connection Requests" />}
+            <Tab label="Manage Assignments" />
+            <Tab label="Review Submissions" />
           </Tabs>
         </Box>
 
@@ -531,7 +720,11 @@ const InstructorDashboardPage = () => {
           </Box>
         )}
 
-        {activeTab === 3 && <ConnectionRequests />}
+        {activeTab === 3 && <ConnectionRequests onRequestProcessed={loadDashboardData} />}
+
+        {activeTab === 4 && renderManageAssignmentsTab()}
+
+        {activeTab === 5 && renderReviewSubmissionsTab()}
       </Paper>
     </Container>
   );

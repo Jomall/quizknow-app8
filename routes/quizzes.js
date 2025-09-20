@@ -89,7 +89,10 @@ router.get('/pending', auth, authorize('student'), async (req, res) => {
 router.get('/submitted', auth, authorize('student'), async (req, res) => {
   try {
     const QuizSubmission = require('../models/QuizSubmission');
-    const submissions = await QuizSubmission.find({ student: req.user.id })
+    const submissions = await QuizSubmission.find({
+      student: req.user.id,
+      isCompleted: true
+    })
       .populate('quiz', 'title instructor')
       .populate('quiz.instructor', 'username profile.firstName profile.lastName')
       .sort({ submittedAt: -1 });
@@ -100,7 +103,7 @@ router.get('/submitted', auth, authorize('student'), async (req, res) => {
 });
 
 // Get quiz by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id)
       .populate('instructor', 'username profile.firstName profile.lastName');
@@ -109,9 +112,22 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Quiz not found' });
     }
 
-    // Hide questions if not published and not the instructor
-    if (!quiz.isPublished && (!req.user || quiz.instructor._id.toString() !== req.user.id)) {
-      quiz.questions = [];
+    // Check permissions: instructor or assigned student
+    const isInstructor = quiz.instructor._id.toString() === req.user.id;
+    const isAssignedStudent = req.user.role === 'student' && quiz.students.some(s => s.student.toString() === req.user.id);
+
+    if (!isInstructor && !isAssignedStudent) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+
+    // Hide correct answers for non-instructors
+    if (!isInstructor) {
+      quiz.questions = quiz.questions.map(q => {
+        const question = q.toObject();
+        delete question.correctAnswer;
+        delete question.correctAnswers;
+        return question;
+      });
     }
 
     res.json(quiz);

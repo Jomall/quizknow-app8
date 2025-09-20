@@ -4,19 +4,66 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 const quizAPI = {
   // Quiz endpoints
-  getAllQuizzes: () => axios.get(`${API_BASE_URL}/quizzes`),
-  getQuizById: (id) => axios.get(`${API_BASE_URL}/quizzes/${id}`),
+  getAllQuizzes: () => {
+    const token = localStorage.getItem('token');
+    return axios.get(`${API_BASE_URL}/quizzes`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  getQuizById: (id) => {
+    const token = localStorage.getItem('token');
+    return axios.get(`${API_BASE_URL}/quizzes/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
   createQuiz: (quizData) => axios.post(`${API_BASE_URL}/quizzes`, quizData),
   updateQuiz: (id, quizData) => axios.put(`${API_BASE_URL}/quizzes/${id}`, quizData),
   deleteQuiz: (id) => axios.delete(`${API_BASE_URL}/quizzes/${id}`),
   publishQuiz: (id, studentIds) => axios.post(`${API_BASE_URL}/quizzes/${id}/publish`, { studentIds }),
 
   // Quiz session endpoints
-  startQuizSession: (quizId) => axios.post(`${API_BASE_URL}/quiz/${quizId}/start`),
-  submitQuiz: (quizId, sessionId, answers) => axios.post(`${API_BASE_URL}/quiz/${quizId}/submit`, { sessionId, answers }),
-  getSessionDetails: (quizId, sessionId) => axios.get(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}`),
-  updateAnswer: (quizId, sessionId, questionId, answer) => axios.put(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}/answer`, { questionId, answer }),
-  getProgress: (quizId, sessionId) => axios.get(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}/progress`),
+  startQuizSession: (quizId) => {
+    const token = localStorage.getItem('token');
+    return axios.post(`${API_BASE_URL}/quiz/${quizId}/start`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  submitQuiz: (quizId, sessionId, answers) => {
+    const token = localStorage.getItem('token');
+    return axios.post(`${API_BASE_URL}/quiz/${quizId}/submit`, { sessionId, answers }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  getSessionDetails: (quizId, sessionId) => {
+    const token = localStorage.getItem('token');
+    return axios.get(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  updateAnswer: (quizId, sessionId, questionId, answer) => {
+    const token = localStorage.getItem('token');
+    return axios.put(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}/answer`, { questionId, answer }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  getProgress: (quizId, sessionId) => {
+    const token = localStorage.getItem('token');
+    return axios.get(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}/progress`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  getQuizSubmissions: (quizId) => {
+    const token = localStorage.getItem('token');
+    return axios.get(`${API_BASE_URL}/quiz/${quizId}/submissions`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  markSubmissionReviewed: (quizId, sessionId) => {
+    const token = localStorage.getItem('token');
+    return axios.put(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}/review`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
 };
 
 export default quizAPI;

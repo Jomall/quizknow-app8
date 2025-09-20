@@ -48,6 +48,9 @@ const quizSubmissionSchema = new mongoose.Schema({
   isCompleted: {
     type: Boolean,
     default: false
+  },
+  reviewedAt: {
+    type: Date
   }
 });
 

@@ -17,8 +17,8 @@ const QuizSessionPage = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getQuizById, startQuizSession, getQuizSession } = useQuiz();
-  
+  const { currentQuiz, fetchQuiz, startQuiz } = useQuiz();
+
   const [quiz, setQuiz] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,37 +26,33 @@ const QuizSessionPage = () => {
   const [showQuiz, setShowQuiz] = useState(false);
 
   useEffect(() => {
-    loadQuizAndSession();
+    loadQuiz();
   }, [quizId]);
 
-  const loadQuizAndSession = async () => {
+  useEffect(() => {
+    if (currentQuiz) {
+      setQuiz(currentQuiz);
+      setLoading(false);
+    }
+  }, [currentQuiz]);
+
+  const loadQuiz = async () => {
     try {
       setLoading(true);
-      
-      // Load quiz details
-      const quizData = await getQuizById(quizId);
-      setQuiz(quizData);
+      setError(null);
 
-      // Check for existing session
-      const existingSession = await getQuizSession(quizId);
-      if (existingSession && existingSession.status === 'in_progress') {
-        setSession(existingSession);
-        setShowQuiz(true);
-      } else if (existingSession && existingSession.status === 'completed') {
-        // Redirect to results if already completed
-        navigate(`/quiz/${quizId}/results`);
-      }
+      // Load quiz details
+      await fetchQuiz(quizId);
     } catch (error) {
       console.error('Error loading quiz:', error);
       setError(error.message || 'Failed to load quiz');
-    } finally {
       setLoading(false);
     }
   };
 
   const handleStartQuiz = async () => {
     try {
-      const newSession = await startQuizSession(quizId);
+      const newSession = await startQuiz(quizId);
       setSession(newSession);
       setShowQuiz(true);
     } catch (error) {
@@ -95,8 +91,8 @@ const QuizSessionPage = () => {
       <Container maxWidth="sm" sx={{ mt: 4 }}>
         <Alert severity="info">Quiz not found</Alert>
         <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Button variant="contained" onClick={() => navigate('/browse-quizzes')}>
-            Browse Quizzes
+          <Button variant="contained" onClick={() => navigate('/dashboard')}>
+            Back to Dashboard
           </Button>
         </Box>
       </Container>
@@ -153,9 +149,9 @@ const QuizSessionPage = () => {
           <Button
             variant="outlined"
             size="large"
-            onClick={() => navigate('/browse-quizzes')}
+            onClick={() => navigate('/dashboard')}
           >
-            Back to Browse
+            Back to Dashboard
           </Button>
         </Box>
       </Paper>

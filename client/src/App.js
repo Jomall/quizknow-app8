@@ -21,6 +21,7 @@ import QuizSessionPage from './pages/QuizSessionPage';
 import QuizResultsPage from './pages/QuizResultsPage';
 import ProfilePage from './pages/ProfilePage';
 import QuizReviewPage from './pages/QuizReviewPage';
+import QuizSubmissionReview from './components/quiz/QuizSubmissionReview';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
@@ -66,8 +67,13 @@ function App() {
               } />
               <Route path="/quizzes" element={<QuizListPage />} />
               <Route path="/quiz/:quizId" element={<QuizSessionPage />} />
-              <Route path="/quiz-results/:sessionId" element={<QuizResultsPage />} />
+              <Route path="/quiz/:quizId/results" element={<QuizResultsPage />} />
               <Route path="/quiz-review/:quizId" element={<QuizReviewPage />} />
+              <Route path="/quiz/:quizId/submission/:sessionId/review" element={
+                <ProtectedRoute>
+                  <QuizSubmissionReview />
+                </ProtectedRoute>
+              } />
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <ProfilePage />
