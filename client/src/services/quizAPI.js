@@ -28,9 +28,9 @@ const quizAPI = {
       headers: { Authorization: `Bearer ${token}` }
     });
   },
-  submitQuiz: (quizId, sessionId, answers) => {
+  submitQuiz: (quizId, answers) => {
     const token = localStorage.getItem('token');
-    return axios.post(`${API_BASE_URL}/quiz/${quizId}/submit`, { sessionId, answers }, {
+    return axios.post(`${API_BASE_URL}/submissions`, { quizId, answers }, {
       headers: { Authorization: `Bearer ${token}` }
     });
   },
@@ -61,6 +61,12 @@ const quizAPI = {
   markSubmissionReviewed: (quizId, sessionId) => {
     const token = localStorage.getItem('token');
     return axios.put(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}/review`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  getSubmittedQuizzes: () => {
+    const token = localStorage.getItem('token');
+    return axios.get(`${API_BASE_URL}/submissions/my-submissions`, {
       headers: { Authorization: `Bearer ${token}` }
     });
   },

@@ -82,9 +82,10 @@ quizSessionSchema.virtual('timeRemaining').get(function() {
 });
 
 // Virtual for completion percentage
-quizSessionSchema.virtual('completionPercentage').get(function() {
-  if (!this.answers.length) return 0;
-  return Math.round((this.answers.length / this.quiz.questions.length) * 100);
-});
+// quizSessionSchema.virtual('completionPercentage').get(function() {
+//   if (!this.answers || !this.answers.length) return 0;
+//   if (!this.quiz || !this.quiz.questions) return 0;
+//   return Math.round((this.answers.length / this.quiz.questions.length) * 100);
+// });
 
 module.exports = mongoose.model('QuizSession', quizSessionSchema);

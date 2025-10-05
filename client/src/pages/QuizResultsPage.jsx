@@ -27,10 +27,10 @@ import QuizResults from '../components/quiz/QuizResults';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const QuizResultsPage = () => {
-  const { quizId } = useParams();
+  const { quizId, sessionId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { getUserQuizzes, fetchQuiz } = useQuiz();
+  const { getSubmittedQuizzes, getQuizResults } = useQuiz();
 
   const [session, setSession] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -39,27 +39,51 @@ const QuizResultsPage = () => {
 
   useEffect(() => {
     loadResults();
-  }, [quizId]);
+  }, [quizId, sessionId]);
 
   const loadResults = async () => {
     try {
       setLoading(true);
 
-      const [submissions, quizData] = await Promise.all([
-        getUserQuizzes(),
-        fetchQuiz(quizId),
-      ]);
+      if (sessionId) {
+        // Fetch specific quiz results by sessionId
+        const results = await getQuizResults(quizId, sessionId);
+        setSession(results.session);
+        setQuiz(results.quiz);
+      } else {
+        // Fallback to finding latest submission for this quiz
+        const submissions = await getSubmittedQuizzes();
 
-      // Find the latest submission for this quiz
-      const submission = submissions
-        .filter(s => s.quiz && s.quiz._id === quizId)
-        .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
+        if (!submissions || submissions.length === 0) {
+          setError('No completed quiz sessions found. You may not have taken any quizzes yet.');
+          return;
+        }
 
-      setSession(submission);
-      setQuiz(quizData);
+        // Find the latest submission for this quiz
+        const submission = submissions
+          .filter(s => s.quiz && s.quiz._id && s.quiz._id.toString() === quizId.toString())
+          .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
+
+        if (submission) {
+          setSession(submission);
+          setQuiz(submission.quiz);
+        } else {
+          setError(`No results found for this quiz. You may not have completed this quiz yet, or the quiz data is unavailable.`);
+        }
+      }
     } catch (error) {
       console.error('Error loading results:', error);
-      setError(error.message || 'Failed to load quiz results');
+      if (error.response?.status === 401) {
+        setError('Authentication failed. Please log in again.');
+      } else if (error.response?.status === 403) {
+        setError('You do not have permission to view these quiz results.');
+      } else if (error.response?.status === 404) {
+        setError('Quiz results not found.');
+      } else if (error.response?.status === 500) {
+        setError('Server error occurred while loading quiz results. Please try again later.');
+      } else {
+        setError(error.message || 'Failed to load quiz results. Please check your connection and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -70,7 +94,7 @@ const QuizResultsPage = () => {
     const correctAnswers = session.answers.filter(
       (answer) => answer.isCorrect
     ).length;
-    return Math.round((correctAnswers / quiz.questions.length) * 100);
+    return Math.round((correctAnswers / quiz.questionCount) * 100);
   };
 
   const getScoreColor = (score) => {
@@ -117,7 +141,8 @@ const QuizResultsPage = () => {
 
   const score = calculateScore();
   const correctAnswers = session.answers.filter(a => a.isCorrect).length;
-  const totalQuestions = quiz.questions.length;
+  const totalQuestions = quiz.questionCount;
+  const passingScore = quiz.settings?.passingScore || 70;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -125,7 +150,7 @@ const QuizResultsPage = () => {
         <Typography variant="h4" gutterBottom align="center">
           Quiz Results
         </Typography>
-        
+
         <Grid container spacing={4} sx={{ mt: 2 }}>
           {/* Score Summary */}
           <Grid item xs={12} md={6}>
@@ -142,8 +167,8 @@ const QuizResultsPage = () => {
                 {correctAnswers} out of {totalQuestions} questions correct
               </Typography>
               <Chip
-                label={score >= quiz.settings.passingScore ? 'Passed' : 'Failed'}
-                color={score >= quiz.settings.passingScore ? 'success' : 'error'}
+                label={score >= passingScore ? 'Passed' : 'Failed'}
+                color={score >= passingScore ? 'success' : 'error'}
                 sx={{ mt: 1 }}
               />
             </Paper>
@@ -165,7 +190,7 @@ const QuizResultsPage = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <ScoreIcon color="primary" />
                   <Typography>
-                    Passing Score: {quiz.settings.passingScore}%
+                    Passing Score: {passingScore}%
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -192,9 +217,9 @@ const QuizResultsPage = () => {
               </Typography>
               <List>
                 {quiz.questions.map((question, index) => {
-                  const answer = session.answers.find(a => a.questionId === question._id);
+                  const answer = session.answers.find(a => a.questionId === question._id.toString());
                   const isCorrect = answer?.isCorrect || false;
-                  
+
                   return (
                     <React.Fragment key={question._id}>
                       <ListItem>
@@ -239,7 +264,7 @@ const QuizResultsPage = () => {
               <Button
                 variant="outlined"
                 onClick={() => navigate(`/quiz/${quizId}/retake`)}
-                disabled={!quiz.settings.allowMultipleAttempts}
+                disabled={!(quiz.settings?.allowMultipleAttempts || false)}
               >
                 Retake Quiz
               </Button>

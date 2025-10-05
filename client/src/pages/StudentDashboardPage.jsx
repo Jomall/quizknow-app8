@@ -34,7 +34,7 @@ import {
   Audiotrack as AudiotrackIcon,
   Link as LinkIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useQuiz } from '../context/QuizContext';
 import InstructorBrowser from '../components/common/InstructorBrowser';
@@ -60,12 +60,29 @@ const StudentDashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { getUserQuizzes, getQuizStats, getAvailableQuizzes, getPendingQuizzes, getSubmittedQuizzes } = useQuiz();
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+    // Set up polling to refresh dashboard data every 30 seconds
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 30000); // 30 seconds
+
+    // Listen for quiz submission events to refresh immediately
+    const handleQuizSubmitted = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener('quizSubmitted', handleQuizSubmitted);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('quizSubmitted', handleQuizSubmitted);
+    };
+  }, [location]);
 
   const fetchReceivedContent = async () => {
     try {

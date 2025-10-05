@@ -81,6 +81,7 @@ const quizSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
+    submittedAt: Date,
     dueDate: Date
   }],
   questions: [questionSchema],
@@ -123,7 +124,7 @@ const quizSchema = new mongoose.Schema({
     },
     requireManualReview: {
       type: Boolean,
-      default: true
+      default: false
     }
   },
   isPublished: {
@@ -181,11 +182,13 @@ quizSchema.index({ createdAt: -1 });
 
 // Virtual for total points
 quizSchema.virtual('totalPoints').get(function() {
-  return this.questions.reduce((total, question) => total + question.points, 0);
+  if (!this.questions || !Array.isArray(this.questions)) return 0;
+  return this.questions.reduce((total, question) => total + (question.points || 0), 0);
 });
 
 // Virtual for question count
 quizSchema.virtual('questionCount').get(function() {
+  if (!this.questions || !Array.isArray(this.questions)) return 0;
   return this.questions.length;
 });
 
@@ -194,5 +197,28 @@ quizSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Transform to clean data for JSON serialization
+quizSchema.methods.toJSON = function() {
+  const quiz = this.toObject();
+  if (quiz.questions && Array.isArray(quiz.questions)) {
+    quiz.questions = quiz.questions.map(q => {
+      const cleanQ = { ...q };
+      if (cleanQ.options && Array.isArray(cleanQ.options)) {
+        cleanQ.options = cleanQ.options.map(opt => ({
+          text: opt.text || '',
+          isCorrect: opt.isCorrect || false,
+          explanation: opt.explanation || ''
+        }));
+      } else {
+        cleanQ.options = [];
+      }
+      return cleanQ;
+    });
+  } else {
+    quiz.questions = [];
+  }
+  return quiz;
+};
 
 module.exports = mongoose.model('Quiz', quizSchema);

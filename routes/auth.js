@@ -157,4 +157,51 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Get quiz stats for student
+router.get('/users/quiz-stats', auth, async (req, res) => {
+  try {
+    const QuizSession = require('../models/QuizSession');
+    const sessions = await QuizSession.find({ student: req.user.id });
+    const totalQuizzes = sessions.length;
+    const completedSessions = sessions.filter(s => s.status === 'completed');
+    const completedQuizzes = completedSessions.length;
+    const averageScore = completedSessions.length > 0 ? completedSessions.reduce((sum, s) => sum + (s.percentage || 0), 0) / completedSessions.length : 0;
+    const totalTime = 0; // Time tracking not implemented
+    res.json({
+      totalQuizzes,
+      completedQuizzes,
+      averageScore,
+      totalTime
+    });
+  } catch (error) {
+    console.error('Error fetching quiz stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get stats for instructor
+router.get('/users/stats', auth, async (req, res) => {
+  try {
+    const Quiz = require('../models/Quiz');
+    const QuizSession = require('../models/QuizSession');
+    const totalQuizzes = await Quiz.countDocuments({ instructor: req.user.id });
+    const totalStudents = await User.countDocuments({ role: 'student' });
+    const instructorQuizzes = await Quiz.find({ instructor: req.user.id }).select('_id');
+    const quizIds = instructorQuizzes.map(q => q._id);
+    const sessions = await QuizSession.find({ quiz: { $in: quizIds }, status: 'completed' });
+    const averageScore = sessions.length > 0 ? sessions.reduce((sum, s) => sum + (s.percentage || 0), 0) / sessions.length : 0;
+    const totalSessions = await QuizSession.countDocuments({ quiz: { $in: quizIds } });
+    const completionRate = totalSessions > 0 ? (sessions.length / totalSessions) * 100 : 0;
+    res.json({
+      totalQuizzes,
+      totalStudents,
+      averageScore,
+      completionRate
+    });
+  } catch (error) {
+    console.error('Error fetching instructor stats:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

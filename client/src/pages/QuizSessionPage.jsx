@@ -17,13 +17,14 @@ const QuizSessionPage = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { currentQuiz, fetchQuiz, startQuiz } = useQuiz();
+  const { currentQuiz, fetchQuiz, startQuiz, getUserQuizSessions } = useQuiz();
 
   const [quiz, setQuiz] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [hasCompleted, setHasCompleted] = useState(false);
 
   useEffect(() => {
     loadQuiz();
@@ -32,6 +33,7 @@ const QuizSessionPage = () => {
   useEffect(() => {
     if (currentQuiz) {
       setQuiz(currentQuiz);
+      checkCompleted();
       setLoading(false);
     }
   }, [currentQuiz]);
@@ -47,6 +49,18 @@ const QuizSessionPage = () => {
       console.error('Error loading quiz:', error);
       setError(error.message || 'Failed to load quiz');
       setLoading(false);
+    }
+  };
+
+  const checkCompleted = async () => {
+    try {
+      const sessions = await getUserQuizSessions();
+      const completed = sessions.find(s => s.quiz._id === quizId);
+      if (completed) {
+        setHasCompleted(true);
+      }
+    } catch (error) {
+      console.error('Error checking completion:', error);
     }
   };
 
@@ -95,6 +109,35 @@ const QuizSessionPage = () => {
             Back to Dashboard
           </Button>
         </Box>
+      </Container>
+    );
+  }
+
+  if (hasCompleted) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Paper sx={{ p: 4 }}>
+          <Typography variant="h4" gutterBottom>
+            Quiz Already Completed
+          </Typography>
+          <Typography variant="body1" paragraph>
+            You have already completed this quiz.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+            <Button
+              variant="contained"
+              onClick={() => navigate(`/quiz/${quizId}/results`)}
+            >
+              View Results
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/dashboard')}
+            >
+              Back to Dashboard
+            </Button>
+          </Box>
+        </Paper>
       </Container>
     );
   }

@@ -67,6 +67,8 @@ const InstructorDashboardPage = () => {
   const [studentProgress, setStudentProgress] = useState([]);
   const [recentQuizzes, setRecentQuizzes] = useState([]);
   const [recentContent, setRecentContent] = useState([]);
+  const [allQuizzes, setAllQuizzes] = useState([]);
+  const [allContent, setAllContent] = useState([]);
   const [quizSubmissions, setQuizSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -76,6 +78,12 @@ const InstructorDashboardPage = () => {
 
   useEffect(() => {
     loadDashboardData();
+    // Set up polling to refresh dashboard data every 30 seconds
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -89,6 +97,14 @@ const InstructorDashboardPage = () => {
       loadQuizSubmissions();
     }
   }, [activeTab, recentQuizzes]);
+
+  useEffect(() => {
+    if (activeTab === 4) {
+      loadAllAssignments();
+      // Also refresh the main dashboard data to get latest quiz assignments
+      loadDashboardData();
+    }
+  }, [activeTab]);
 
   const loadQuizSubmissions = async () => {
     try {
@@ -105,6 +121,24 @@ const InstructorDashboardPage = () => {
       setQuizSubmissions(submissionsData);
     } catch (error) {
       console.error('Error loading quiz submissions:', error);
+    }
+  };
+
+  const loadAllAssignments = async () => {
+    try {
+      setLoading(true);
+      // Fetch all quizzes and content for managing assignments
+      const [quizzesRes, contentRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/quizzes/my-quizzes`),
+        axios.get(`${API_BASE_URL}/content/my-content`),
+      ]);
+      setAllQuizzes(quizzesRes.data);
+      setAllContent(contentRes.data);
+    } catch (error) {
+      console.error('Error loading all assignments:', error);
+      setError('Failed to load assignments');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -260,10 +294,15 @@ const InstructorDashboardPage = () => {
 
   const renderManageAssignmentsTab = () => (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Quiz Assignments
-      </Typography>
-      {recentQuizzes.map(quiz => (
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6">
+          Quiz Assignments
+        </Typography>
+        <Button variant="outlined" size="small" onClick={() => { loadAllAssignments(); loadDashboardData(); }}>
+          Refresh
+        </Button>
+      </Box>
+      {allQuizzes.length > 0 ? allQuizzes.map(quiz => (
         <Card key={quiz._id} sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="h6">{quiz.title}</Typography>
@@ -272,12 +311,11 @@ const InstructorDashboardPage = () => {
               quiz.students.map(s => {
                 const student = s.student;
                 if (!student) return null;
-                const progress = studentProgress.find(p => p.student && p.student._id === student._id);
-                const submission = progress?.quizSubmissions.find(sub => sub.quiz._id === quiz._id);
+                const isSubmitted = s.submittedAt !== undefined && s.submittedAt !== null;
                 return (
                   <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
                     <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
-                    <Chip label={submission ? `Submitted (${submission.score}%)` : 'Not Submitted'} color={submission ? 'success' : 'default'} size="small" />
+                    <Chip label={isSubmitted ? 'Submitted' : 'Not Submitted'} color={isSubmitted ? 'success' : 'default'} size="small" />
                   </Box>
                 );
               }).filter(Boolean)
@@ -286,7 +324,9 @@ const InstructorDashboardPage = () => {
             )}
           </CardContent>
         </Card>
-      ))}
+      )) : (
+        <Typography variant="body2" color="text.secondary">No quizzes available</Typography>
+      )}
       <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>
         Content Assignments
       </Typography>

@@ -14,6 +14,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -31,8 +32,12 @@ export const AuthProvider = ({ children }) => {
       setUser(response.data);
     } catch (error) {
       console.error('Error fetching user:', error);
-      localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
+      if (error.response?.status === 401) {
+        // Token is invalid or expired, clear it
+        localStorage.removeItem('token');
+        delete axios.defaults.headers.common['Authorization'];
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -40,6 +45,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      setError(null);
       const response = await axios.post('/api/auth/login', { email, password });
       const { token, user } = response.data;
 
@@ -47,12 +53,14 @@ export const AuthProvider = ({ children }) => {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Login failed');
+      setError(error.response?.data?.message || 'Login failed. Please try again.');
+      throw error;
     }
   };
 
   const register = async (userData) => {
     try {
+      setError(null);
       const response = await axios.post('/api/auth/register', userData);
       const { token, user } = response.data;
       
@@ -62,6 +70,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (error) {
+      setError(error.response?.data?.message || 'Registration failed. Please try again.');
       return { 
         success: false, 
         error: error.response?.data?.message || 'Registration failed' 
@@ -80,7 +89,9 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    loading
+    loading,
+    error,
+    setError
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

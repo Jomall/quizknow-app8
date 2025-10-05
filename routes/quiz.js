@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Quiz = require('../models/Quiz');
 const QuizSession = require('../models/QuizSession');
 const QuizSubmission = require('../models/QuizSubmission');
@@ -21,7 +22,7 @@ router.get('/', auth, async (req, res) => {
     } = req.query;
 
     const query = {};
-    
+
     if (category) query.category = category;
     if (difficulty) query.difficulty = difficulty;
     if (tags) query.tags = { $in: tags.split(',') };
@@ -49,6 +50,20 @@ router.get('/', auth, async (req, res) => {
       currentPage: page,
       total
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get quizzes created by the current user
+router.get('/user', auth, async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({ instructor: req.user.id })
+      .populate('instructor', 'name email')
+      .select('-questions.correctAnswer -questions.correctAnswers')
+      .sort({ createdAt: -1 });
+
+    res.json(quizzes);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -176,15 +191,30 @@ router.patch('/:id/publish', auth, async (req, res) => {
 router.post('/:id/assign', auth, async (req, res) => {
   try {
     const { studentIds, dueDate } = req.body;
-    
+
     const quiz = await Quiz.findById(req.params.id);
-    
+
     if (!quiz) {
       return res.status(404).json({ message: 'Quiz not found' });
     }
 
     if (quiz.instructor.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Validate that the quiz has correct answers for all questions before assignment
+    if (!quiz.questions || quiz.questions.length === 0) {
+      return res.status(400).json({ message: 'Quiz must have questions before assignment' });
+    }
+
+    const questionsWithoutAnswers = quiz.questions.filter(q =>
+      !q.correctAnswer && (!q.correctAnswers || q.correctAnswers.length === 0)
+    );
+
+    if (questionsWithoutAnswers.length > 0) {
+      return res.status(400).json({
+        message: 'All questions must have correct answers before the quiz can be assigned to students'
+      });
     }
 
     const newAssignments = studentIds.map(studentId => ({
@@ -194,8 +224,12 @@ router.post('/:id/assign', auth, async (req, res) => {
 
     quiz.students = [...quiz.students, ...newAssignments];
     await quiz.save();
-    
-    res.json({ message: 'Quiz assigned successfully' });
+
+    res.json({
+      message: 'Quiz assigned successfully',
+      assignedCount: studentIds.length,
+      totalAssigned: quiz.students.length
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -228,7 +262,7 @@ router.get('/:id/submissions', auth, async (req, res) => {
       maxScore: session.maxScore,
       percentage: Math.round((session.score / session.maxScore) * 100),
       submittedAt: session.endTime,
-      timeSpent: Math.round((session.endTime - session.startTime) / 60000), // minutes
+      timeSpent: session.endTime ? Math.round((session.endTime - session.startTime) / 60000) : 0, // minutes
       answers: session.answers
     }));
 
@@ -260,7 +294,7 @@ router.get('/:id/analytics', auth, async (req, res) => {
 
     const sessions = await QuizSession.find({ quiz: req.params.id })
       .populate('student', 'name email')
-      .sort({ startedAt: -1 });
+      .sort({ startTime: -1 });
 
     const analytics = {
       totalAttempts: quiz.analytics.totalAttempts,
@@ -270,8 +304,8 @@ router.get('/:id/analytics', auth, async (req, res) => {
       sessions: sessions.map(session => ({
         student: session.student,
         score: session.score,
-        startedAt: session.startedAt,
-        completedAt: session.completedAt,
+        startedAt: session.startTime,
+        completedAt: session.endTime,
         timeSpent: session.timeSpent,
         answers: session.answers.length
       }))
@@ -311,7 +345,7 @@ router.post('/:id/start', auth, async (req, res) => {
     const session = new QuizSession({
       quiz: req.params.id,
       student: req.user.id,
-      startedAt: new Date(),
+      startTime: new Date(),
       timeLimit: quiz.settings?.timeLimit || 60,
       maxScore: quiz.totalPoints || 0
     });
@@ -321,7 +355,7 @@ router.post('/:id/start', auth, async (req, res) => {
       _id: session._id,
       quiz: quiz._id,
       student: req.user.id,
-      startedAt: session.startedAt,
+      startedAt: session.startTime,
       timeRemaining: (quiz.settings?.timeLimit || 60) * 60 // timeLimit in minutes
     });
   } catch (error) {
@@ -356,7 +390,7 @@ router.get('/:id/take', auth, async (req, res) => {
     const session = new QuizSession({
       quiz: req.params.id,
       student: req.user.id,
-      startedAt: new Date()
+      startTime: new Date()
     });
     await session.save();
 
@@ -505,6 +539,27 @@ router.post('/:id/submit', auth, async (req, res) => {
 
     await session.save();
 
+    // Create QuizSubmission record for instructor dashboard tracking
+    const submission = new QuizSubmission({
+      quiz: session.quiz,
+      student: session.student,
+      answers: session.answers.map(ans => ({
+        questionId: ans.questionId,
+        answer: ans.answer,
+        isCorrect: ans.isCorrect,
+        pointsEarned: ans.points
+      })),
+      score: session.score,
+      maxScore: session.maxScore,
+      percentage: Math.round((session.score / session.maxScore) * 100),
+      startedAt: session.startTime,
+      submittedAt: session.endTime,
+      timeSpent: Math.round((session.endTime - session.startTime) / 60000),
+      isCompleted: true
+    });
+
+    await submission.save();
+
     res.json({
       message: 'Quiz submitted successfully',
       score: session.score,
@@ -554,5 +609,170 @@ router.put('/:id/session/:sessionId/review', auth, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// Get quiz results for a specific completed session
+router.get('/:id/results/:sessionId', auth, async (req, res) => {
+  try {
+    const session = await QuizSession.findById(req.params.sessionId)
+      .populate('quiz')
+      .populate('student', 'username profile.firstName profile.lastName');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if user is authorized to view this session
+    const isStudent = session.student._id.toString() === req.user.id;
+    const isInstructor = session.quiz.instructor.toString() === req.user.id;
+
+    if (!isStudent && !isInstructor) {
+      return res.status(403).json({ message: 'Not authorized to view these results' });
+    }
+
+    if (session.status !== 'completed') {
+      return res.status(400).json({ message: 'Session is not completed yet' });
+    }
+
+    // Prepare quiz data without correct answers for students
+    let quizData = session.quiz.toObject();
+
+    // If user is a student (not instructor), remove correct answers from questions
+    if (isStudent && !isInstructor) {
+      quizData.questions = quizData.questions.map(q => {
+        const questionWithoutAnswer = { ...q };
+        delete questionWithoutAnswer.correctAnswer;
+        delete questionWithoutAnswer.correctAnswers;
+        return questionWithoutAnswer;
+      });
+    }
+
+    // Calculate additional stats
+    const timeSpent = session.endTime ? Math.round((session.endTime - session.startTime) / 60000) : 0; // minutes
+    const percentage = session.maxScore > 0 ? Math.round((session.score / session.maxScore) * 100) : 0;
+
+    const results = {
+      session: {
+        _id: session._id,
+        student: session.student,
+        score: session.score,
+        maxScore: session.maxScore,
+        percentage: percentage,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        timeSpent: timeSpent,
+        status: session.status,
+        answers: session.answers
+      },
+      quiz: {
+        _id: quizData._id,
+        title: quizData.title,
+        description: quizData.description,
+        instructions: quizData.instructions,
+        settings: quizData.settings,
+        totalPoints: quizData.totalPoints,
+        questionCount: quizData.questionCount,
+        questions: quizData.questions
+      }
+    };
+
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching quiz results:', error);
+    res.status(500).json({
+      message: 'Failed to fetch quiz results',
+      error: error.message
+    });
+  }
+});
+
+// Get my completed quiz sessions
+router.get('/my-sessions', auth, async (req, res) => {
+  try {
+    console.log('=== MY-SESSIONS DEBUG START ===');
+    console.log('User ID:', req.user.id);
+
+    // Find all completed sessions for the user
+    console.log('Finding completed sessions...');
+    const sessions = await QuizSession.find({
+      student: req.user.id,
+      status: 'completed'
+    })
+    .sort({ endTime: -1 })
+    .lean(); // Use lean() for better performance
+
+    console.log('Found sessions:', sessions.length);
+    console.log('Session details:', sessions.map(s => ({
+      id: s._id,
+      quiz: s.quiz,
+      status: s.status,
+      startTime: s.startTime,
+      endTime: s.endTime
+    })));
+
+    if (!sessions || sessions.length === 0) {
+      console.log('No sessions found, returning empty array');
+      return res.json([]);
+    }
+
+    // Get unique quiz IDs from sessions
+    const quizIds = [...new Set(sessions.map(s => s.quiz).filter(id => id))];
+    console.log('Unique quiz IDs:', quizIds);
+
+    // Fetch quiz data in bulk
+    console.log('Fetching quiz data...');
+    const quizzes = await Quiz.find({
+      _id: { $in: quizIds }
+    })
+    .select('title settings questionCount totalPoints')
+    .lean();
+
+    console.log('Found quizzes:', quizzes.length);
+    console.log('Quiz details:', quizzes.map(q => ({
+      id: q._id,
+      title: q.title
+    })));
+
+    // Create a map of quiz data for quick lookup
+    const quizMap = new Map();
+    quizzes.forEach(quiz => {
+      quizMap.set(quiz._id.toString(), quiz);
+    });
+
+    // Combine session data with quiz data
+    console.log('Combining session and quiz data...');
+    const populatedSessions = sessions.map(session => {
+      const quizData = quizMap.get(session.quiz?.toString());
+      const timeSpent = session.endTime ? Math.round((session.endTime - session.startTime) / 60000) : 0;
+
+      console.log(`Session ${session._id}: quiz=${session.quiz}, quizData=${!!quizData}, timeSpent=${timeSpent}`);
+
+      return {
+        ...session,
+        quiz: quizData || null,
+        timeSpent: timeSpent // minutes
+      };
+    }).filter(session => session.quiz !== null); // Only include sessions with valid quiz data
+
+    console.log(`Found ${populatedSessions.length} valid quiz sessions out of ${sessions.length} total sessions`);
+    console.log('=== MY-SESSIONS DEBUG END ===');
+
+    res.json(populatedSessions);
+  } catch (error) {
+    console.error('=== MY-SESSIONS ERROR ===');
+    console.error('Error details:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error message:', error.message);
+    console.error('=== MY-SESSIONS ERROR END ===');
+    res.status(500).json({
+      message: 'Failed to fetch quiz sessions',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+
+
+
 
 module.exports = router;

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import quizAPI from '../services/quizAPI';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const QuizContext = createContext();
 
@@ -104,7 +104,7 @@ export const QuizProvider = ({ children }) => {
 
   const updateAnswer = async (questionId, answer) => {
     dispatch({ type: ACTIONS.UPDATE_ANSWER, payload: { questionId, answer } });
-    
+
     if (state.session) {
       try {
         await quizAPI.updateAnswer(
@@ -129,11 +129,20 @@ export const QuizProvider = ({ children }) => {
 
       await quizAPI.submitQuiz(
         state.currentQuiz._id,
-        state.session._id,
         answersArray
       );
 
       dispatch({ type: ACTIONS.COMPLETE_QUIZ });
+
+      // Notify or trigger refresh for dashboard or other components
+      if (typeof window !== 'undefined') {
+        const event = new Event('quizSubmitted');
+        window.dispatchEvent(event);
+      }
+
+      // Refresh user quiz sessions to update completed status
+      await getUserQuizSessions();
+
     } catch (error) {
       dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
     }
@@ -186,7 +195,7 @@ export const QuizProvider = ({ children }) => {
   const getUserQuizzes = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/submissions/my-submissions`, {
+      const response = await axios.get(`${API_BASE_URL}/quiz/user?t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -251,7 +260,7 @@ export const QuizProvider = ({ children }) => {
   const getSubmittedQuizzes = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/quizzes/submitted`, {
+      const response = await axios.get(`${API_BASE_URL}/submissions/my-submissions`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       return response.data;
@@ -271,6 +280,21 @@ export const QuizProvider = ({ children }) => {
     }
   };
 
+  const getQuizResults = async (quizId, sessionId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_BASE_URL}/quiz/${quizId}/results/${sessionId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching quiz results:', error);
+      throw error;
+    }
+  };
+
+  const getUserQuizSessions = getSubmittedQuizzes;
+
   const value = {
     ...state,
     fetchQuizzes,
@@ -282,11 +306,13 @@ export const QuizProvider = ({ children }) => {
     getInstructorStats,
     createQuiz,
     getUserQuizzes,
+    getUserQuizSessions,
     getQuizStats,
     getAvailableQuizzes,
     getPendingQuizzes,
     getSubmittedQuizzes,
     getAllQuizzes,
+    getQuizResults,
   };
 
   return <QuizContext.Provider value={value}>{children}</QuizContext.Provider>;

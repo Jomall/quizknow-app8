@@ -89,8 +89,7 @@ router.post('/', auth, checkApproved, async (req, res) => {
 router.get('/my-submissions', auth, async (req, res) => {
   try {
     const submissions = await QuizSubmission.find({ student: req.user.id })
-      .populate('quiz', 'title instructor')
-      .populate('quiz.instructor', 'username profile.firstName profile.lastName')
+      .populate('quiz')
       .sort({ submittedAt: -1 });
 
     res.json(submissions);
