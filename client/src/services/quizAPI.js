@@ -54,13 +54,14 @@ const quizAPI = {
   },
   getQuizSubmissions: (quizId) => {
     const token = localStorage.getItem('token');
-    return axios.get(`${API_BASE_URL}/quiz/${quizId}/submissions`, {
+    return axios.get(`${API_BASE_URL}/submissions/quiz/${quizId}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
   },
-  markSubmissionReviewed: (quizId, sessionId) => {
+  markSubmissionReviewed: (submissionId) => {
     const token = localStorage.getItem('token');
-    return axios.put(`${API_BASE_URL}/quiz/${quizId}/session/${sessionId}/review`, {}, {
+    console.log('API call - markSubmissionReviewed:', { submissionId, token: token ? 'present' : 'missing' });
+    return axios.put(`${API_BASE_URL}/submissions/${submissionId}/review`, {}, {
       headers: { Authorization: `Bearer ${token}` }
     });
   },
@@ -68,6 +69,19 @@ const quizAPI = {
     const token = localStorage.getItem('token');
     return axios.get(`${API_BASE_URL}/submissions/my-submissions`, {
       headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  deleteSubmission: (submissionId) => {
+    const token = localStorage.getItem('token');
+    return axios.delete(`${API_BASE_URL}/submissions/${submissionId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  },
+  deleteSubmissionsBatch: (submissionIds) => {
+    const token = localStorage.getItem('token');
+    return axios.delete(`${API_BASE_URL}/submissions`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { submissionIds }
     });
   },
 };

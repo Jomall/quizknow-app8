@@ -183,7 +183,7 @@ quizSchema.index({ createdAt: -1 });
 // Virtual for total points
 quizSchema.virtual('totalPoints').get(function() {
   if (!this.questions || !Array.isArray(this.questions)) return 0;
-  return this.questions.reduce((total, question) => total + (question.points || 0), 0);
+  return this.questions.reduce((total, question) => total + (question.points || 1), 0);
 });
 
 // Virtual for question count

@@ -125,7 +125,7 @@ const QuestionRenderer = ({ question, questionIndex, totalQuestions, currentAnsw
             <FormLabel component="legend">{question.question}</FormLabel>
             <RadioGroup
               value={currentAnswer || ''}
-              onChange={(e) => handleAnswerChange(e.target.value === 'true')}
+              onChange={(e) => handleAnswerChange(e.target.value)}
             >
               <FormControlLabel value="true" control={<Radio />} label="True" />
               <FormControlLabel value="false" control={<Radio />} label="False" />

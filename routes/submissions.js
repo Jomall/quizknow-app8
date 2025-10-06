@@ -31,13 +31,13 @@ router.post('/', auth, checkApproved, async (req, res) => {
 
     const submissionAnswers = answers.map(answer => {
       const question = quiz.questions.find(q => q._id.toString() === answer.questionId);
-      const isCorrect = question && question.correctAnswer === answer.selectedAnswer;
+      const isCorrect = question && question.correctAnswer === answer.answer;
 
       if (isCorrect) score++;
 
       return {
         questionId: answer.questionId,
-        selectedAnswer: answer.selectedAnswer,
+        answer: answer.answer,
         isCorrect
       };
     });
@@ -165,6 +165,98 @@ router.put('/:id/review', auth, async (req, res) => {
     await submission.save();
 
     res.json({ message: 'Submission marked as reviewed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Delete single submission (instructor only)
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const submission = await QuizSubmission.findById(req.params.id)
+      .populate('quiz');
+
+    if (!submission) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
+
+    if (submission.quiz.instructor.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Update quiz student record to allow retake
+    const studentIndex = submission.quiz.students.findIndex(s =>
+      s.student.toString() === submission.student.toString()
+    );
+    if (studentIndex >= 0) {
+      submission.quiz.students[studentIndex].submittedAt = undefined;
+      await submission.quiz.save();
+    }
+
+    await QuizSubmission.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Submission cleared successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Delete multiple submissions (batch clear) (instructor only)
+router.delete('/', auth, async (req, res) => {
+  try {
+    const { submissionIds } = req.body;
+
+    if (!submissionIds || !Array.isArray(submissionIds) || submissionIds.length === 0) {
+      return res.status(400).json({ message: 'submissionIds array is required' });
+    }
+
+    // Get all submissions to verify ownership
+    const submissions = await QuizSubmission.find({ _id: { $in: submissionIds } })
+      .populate('quiz');
+
+    if (submissions.length !== submissionIds.length) {
+      return res.status(404).json({ message: 'One or more submissions not found' });
+    }
+
+    // Verify all submissions belong to the same instructor
+    const instructorId = submissions[0].quiz.instructor.toString();
+    const allSameInstructor = submissions.every(sub =>
+      sub.quiz.instructor.toString() === instructorId
+    );
+
+    if (!allSameInstructor || instructorId !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Update quiz student records to allow retakes
+    const quizUpdates = {};
+    submissions.forEach(submission => {
+      const quizId = submission.quiz._id.toString();
+      if (!quizUpdates[quizId]) {
+        quizUpdates[quizId] = [];
+      }
+      quizUpdates[quizId].push(submission.student.toString());
+    });
+
+    for (const [quizId, studentIds] of Object.entries(quizUpdates)) {
+      const quiz = await Quiz.findById(quizId);
+      studentIds.forEach(studentId => {
+        const studentIndex = quiz.students.findIndex(s =>
+          s.student.toString() === studentId
+        );
+        if (studentIndex >= 0) {
+          quiz.students[studentIndex].submittedAt = undefined;
+        }
+      });
+      await quiz.save();
+    }
+
+    // Delete submissions
+    const result = await QuizSubmission.deleteMany({ _id: { $in: submissionIds } });
+
+    res.json({
+      message: `${result.deletedCount} submissions cleared successfully`
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

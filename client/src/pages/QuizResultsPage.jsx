@@ -89,24 +89,19 @@ const QuizResultsPage = () => {
     }
   };
 
-  const calculateScore = () => {
-    if (!session || !quiz) return 0;
-    const correctAnswers = session.answers.filter(
-      (answer) => answer.isCorrect
-    ).length;
-    return Math.round((correctAnswers / quiz.questionCount) * 100);
-  };
-
   const getScoreColor = (score) => {
     if (score >= 80) return 'success';
     if (score >= 60) return 'warning';
     return 'error';
   };
 
-  const formatTime = (seconds) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const formatTime = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (hours > 0) {
+      return `${hours}:${remainingMinutes.toString().padStart(2, '0')}`;
+    }
+    return `${remainingMinutes} min`;
   };
 
   if (loading) {
@@ -139,7 +134,7 @@ const QuizResultsPage = () => {
     );
   }
 
-  const score = calculateScore();
+  const score = session.percentage || 0;
   const correctAnswers = session.answers.filter(a => a.isCorrect).length;
   const totalQuestions = quiz.questionCount;
   const passingScore = quiz.settings?.passingScore || 70;

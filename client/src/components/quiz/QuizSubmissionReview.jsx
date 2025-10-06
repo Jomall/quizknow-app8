@@ -53,7 +53,7 @@ const QuizSubmissionReview = () => {
 
       // Get submissions to find the specific session
       const submissionsResponse = await quizAPI.getQuizSubmissions(quizId);
-      const submissionData = submissionsResponse.data.submissions.find(s => s._id === sessionId);
+      const submissionData = submissionsResponse.data.find(s => s._id === sessionId);
 
       if (!submissionData) {
         throw new Error('Submission not found');
@@ -72,13 +72,13 @@ const QuizSubmissionReview = () => {
 
   const handleMarkAsReviewed = async () => {
     try {
-      await quizAPI.markSubmissionReviewed(quizId, sessionId);
+      await quizAPI.markSubmissionReviewed(sessionId);
       setReviewed(true);
       // Reload submission to get updated data
       await loadSubmission();
     } catch (error) {
       console.error('Error marking submission as reviewed:', error);
-      setError('Failed to mark as reviewed');
+      setError(`Failed to mark submission as reviewed: ${error.response?.data?.message || error.message}`);
     }
   };
 

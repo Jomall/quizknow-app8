@@ -1,26 +1,34 @@
-# TODO: Fix Quiz Results Page Issues
+# TODO: Fix Delete Submission Functions
 
-## Steps to Complete
+## Current Status
+- Backend batch delete route implemented in `routes/submissions.js`
+- Frontend API service method implemented in `client/src/services/quizAPI.js`
+- Frontend UI updated in `client/src/pages/InstructorDashboardPage.jsx` to support batch selection and deletion
 
-- [x] Fix /api/quiz/my-sessions endpoint error handling for populate failures
-- [x] Fixed QuizSession model field inconsistencies (changed startedAt to startTime, added endTime)
-- [x] Updated all route references to use correct field names (startTime, endTime)
-- [x] Improve error handling in QuizResultsPage.jsx for better user feedback
-- [x] Implement GET /api/quiz/:id/results/:sessionId endpoint for detailed quiz results
-- [x] Add getQuizResults method to QuizContext for fetching specific session results
-- [x] Update QuizResultsPage to support sessionId parameter for direct result access
-- [x] Fix instructor dashboard not updating when students submit quizzes
-- [ ] Add token refresh logic in AuthContext.js to handle expired tokens
-- [ ] Test authentication flow and quiz results loading
+## Changes Made
+- Fixed `quizSubmissions` state to be an object keyed by quizId instead of array
+- Added batch selection functionality for submissions
+- Implemented batch delete API call in frontend
+- Added debugging logs to track API calls
 
-## Dashboard Update Fix
+## Testing Steps
+- [ ] Start the application (backend and frontend)
+- [ ] Navigate to instructor dashboard
+- [ ] Go to "Review Submissions" tab
+- [ ] Select multiple submissions from different quizzes using checkboxes
+- [ ] Click "Clear Selected" button
+- [ ] Verify submissions are deleted and UI updates correctly
+- [ ] Check browser console for any errors
+- [ ] Verify database: submissions removed, student records updated for retakes
+- [ ] Test individual submission deletion still works
+- [ ] Test edge cases: empty selection, single selection, all submissions selected
 
-- [x] Modified quiz submit endpoint to create QuizSubmission records for instructor progress tracking
-- [x] Added polling to InstructorDashboardPage to refresh data every 30 seconds for real-time updates
+## Files Modified
+- `client/src/pages/InstructorDashboardPage.jsx` - Updated state management and UI logic
+- `routes/submissions.js` - Already had batch delete route
+- `client/src/services/quizAPI.js` - Already had batch delete method
 
-## Notes
-- The 500 errors in /api/quiz/my-sessions are caused by populate failures when quiz references are invalid
-- Fixed field name inconsistencies in QuizSession model (startedAt -> startTime, added endTime)
-- Updated all API endpoints to use consistent field names
-- The 401 errors suggest JWT token issues that need better handling
-- QuizResultsPage should show more specific error messages instead of generic "not found"
+## Next Steps
+- Run application and test the functionality
+- Fix any issues found during testing
+- Remove debug console.log statements after verification
