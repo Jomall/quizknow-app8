@@ -23,6 +23,7 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  TextField,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -35,6 +36,8 @@ import {
   Delete as DeleteIcon,
   Block as BlockIcon,
   CheckCircle as CheckCircleIcon,
+  Edit as EditIcon,
+  Group as GroupIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -55,12 +58,19 @@ const AdminDashboardPage = () => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [userToSuspend, setUserToSuspend] = useState(null);
+  const [instructors, setInstructors] = useState([]);
+  const [limitDialogOpen, setLimitDialogOpen] = useState(false);
+  const [instructorToEdit, setInstructorToEdit] = useState(null);
+  const [newLimit, setNewLimit] = useState(25);
   const navigate = useNavigate();
   const { user } = useAuth();
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+    if (tabValue === 3) {
+      loadInstructors();
+    }
+  }, [tabValue]);
 
   const loadDashboardData = async () => {
     try {
@@ -200,6 +210,71 @@ const AdminDashboardPage = () => {
     }
   };
 
+  const loadInstructors = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/users/instructors', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const instructorsData = await response.json();
+        setInstructors(instructorsData.map(inst => ({
+          id: inst._id,
+          name: `${inst.profile?.firstName || ''} ${inst.profile?.lastName || ''}`.trim() || inst.username,
+          email: inst.email,
+          studentLimit: inst.studentLimit || 25,
+          currentStudents: inst.currentStudents || 0
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading instructors:', error);
+    }
+  };
+
+  const handleEditLimit = (instructor) => {
+    setInstructorToEdit(instructor);
+    setNewLimit(instructor.studentLimit);
+    setLimitDialogOpen(true);
+  };
+
+  const handleConfirmLimitUpdate = async () => {
+    if (!instructorToEdit) return;
+
+    if (newLimit < 1 || newLimit > 50) {
+      alert('Student limit must be between 1 and 50');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/users/instructor-limit/${instructorToEdit.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ studentLimit: newLimit })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(data.message || 'Student limit updated successfully');
+        setLimitDialogOpen(false);
+        setInstructorToEdit(null);
+        loadInstructors();
+      } else {
+        const errorData = await response.json();
+        alert(`Error updating limit: ${errorData.message || 'Unknown error'}`);
+        setLimitDialogOpen(false);
+      }
+    } catch (error) {
+      console.error('Error updating limit:', error);
+      alert('Error updating limit: Network error');
+      setLimitDialogOpen(false);
+    }
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ mb: 4 }}>
@@ -317,6 +392,7 @@ const AdminDashboardPage = () => {
                 <Tab label="Recent Users" />
                 <Tab label="Pending Approvals" />
                 <Tab label="System Overview" />
+                <Tab label="Instructor Management" />
               </Tabs>
             </Box>
 
@@ -432,6 +508,53 @@ const AdminDashboardPage = () => {
                 </Grid>
               </Box>
             )}
+
+            {tabValue === 3 && (
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Instructor Management
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Manage instructor student limits and view their current student counts.
+                </Typography>
+                <List>
+                  {instructors.map((instructor) => (
+                    <React.Fragment key={instructor.id}>
+                      <ListItem
+                        secondaryAction={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Chip
+                              label={`${instructor.currentStudents}/${instructor.studentLimit} students`}
+                              size="small"
+                              color={instructor.currentStudents >= instructor.studentLimit ? 'error' : 'success'}
+                            />
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<EditIcon />}
+                              onClick={() => handleEditLimit(instructor)}
+                            >
+                              Edit Limit
+                            </Button>
+                          </Box>
+                        }
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: 'info.main' }}>
+                            {instructor.name.charAt(0)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={instructor.name}
+                          secondary={instructor.email}
+                        />
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))}
+                </List>
+              </Box>
+            )}
           </Paper>
         </Grid>
       </Grid>
@@ -460,6 +583,40 @@ const AdminDashboardPage = () => {
           <Button onClick={() => setSuspendDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleConfirmSuspend} color={userToSuspend?.isSuspended ? 'success' : 'warning'}>
             {userToSuspend?.isSuspended ? 'Unsuspend' : 'Suspend'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={limitDialogOpen} onClose={() => setLimitDialogOpen(false)}>
+        <DialogTitle>Edit Student Limit</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            Set the maximum number of students for {instructorToEdit?.name}.
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Student Limit"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={newLimit}
+            onChange={(e) => {
+              const val = e.target.value;
+              const num = parseInt(val);
+              if (!isNaN(num) && num >= 1 && num <= 50) {
+                setNewLimit(num);
+              } else if (val === '') {
+                setNewLimit(25);
+              }
+            }}
+            inputProps={{ min: 1, max: 50 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLimitDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirmLimitUpdate} variant="contained">
+            Update Limit
           </Button>
         </DialogActions>
       </Dialog>

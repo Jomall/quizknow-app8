@@ -33,11 +33,13 @@ import {
   Image as ImageIcon,
   Audiotrack as AudiotrackIcon,
   Link as LinkIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useQuiz } from '../context/QuizContext';
 import InstructorBrowser from '../components/common/InstructorBrowser';
+import { printQuizResults } from '../utils/printResults';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -444,7 +446,34 @@ const StudentDashboardPage = () => {
               {submittedQuizzes.length > 0 ? (
                 submittedQuizzes.map((submission) => (
                   <React.Fragment key={submission._id}>
-                    <ListItem>
+                    <ListItem
+                      secondaryAction={
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<PrintIcon />}
+                            onClick={() => printQuizResults(submission.quiz, submission, user)}
+                          >
+                            Print
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => navigate(`/quiz-review/${submission.quiz._id}`)}
+                          >
+                            View Quiz
+                          </Button>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => navigate(`/quiz/${submission.quiz._id}/results`)}
+                          >
+                            View Results
+                          </Button>
+                        </Box>
+                      }
+                    >
                       <ListItemAvatar>
                         <Avatar sx={{ bgcolor: 'info.main' }}>
                           {submission.quiz.title.charAt(0)}

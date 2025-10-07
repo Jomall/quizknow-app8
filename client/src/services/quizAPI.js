@@ -84,6 +84,9 @@ const quizAPI = {
       data: { submissionIds }
     });
   },
+
+  // Global stats (public)
+  getGlobalStats: () => axios.get(`${API_BASE_URL}/users/global-stats`),
 };
 
 export default quizAPI;

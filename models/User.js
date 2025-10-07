@@ -42,6 +42,23 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  studentLimit: {
+    type: Number,
+    default: function() {
+      return this.role === 'instructor' ? 25 : null;
+    },
+    min: 1,
+    max: 50,
+    validate: {
+      validator: function(value) {
+        if (this.role === 'instructor') {
+          return value >= 1 && value <= 50;
+        }
+        return true;
+      },
+      message: 'Student limit must be between 1 and 50 for instructors'
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -1,34 +1,37 @@
-# TODO: Fix Delete Submission Functions
+# QuizKnow App - Print Quiz Results Feature
 
-## Current Status
-- Backend batch delete route implemented in `routes/submissions.js`
-- Frontend API service method implemented in `client/src/services/quizAPI.js`
-- Frontend UI updated in `client/src/pages/InstructorDashboardPage.jsx` to support batch selection and deletion
+## Completed Tasks ✅
 
-## Changes Made
-- Fixed `quizSubmissions` state to be an object keyed by quizId instead of array
-- Added batch selection functionality for submissions
-- Implemented batch delete API call in frontend
-- Added debugging logs to track API calls
+### 1. Add Print Button to Student Dashboard - Submitted Quizzes Section
+- **Status**: ✅ Completed
+- **Description**: Added a "Print" button next to each submitted quiz in the StudentDashboardPage.jsx
+- **Changes Made**:
+  - Modified the `submittedQuizzes.map` section to include secondaryAction with Print and View Results buttons
+  - Added PrintIcon import
+  - Used `printQuizResults(submission.quiz, submission, user)` function call
 
-## Testing Steps
-- [ ] Start the application (backend and frontend)
-- [ ] Navigate to instructor dashboard
-- [ ] Go to "Review Submissions" tab
-- [ ] Select multiple submissions from different quizzes using checkboxes
-- [ ] Click "Clear Selected" button
-- [ ] Verify submissions are deleted and UI updates correctly
-- [ ] Check browser console for any errors
-- [ ] Verify database: submissions removed, student records updated for retakes
-- [ ] Test individual submission deletion still works
-- [ ] Test edge cases: empty selection, single selection, all submissions selected
+### 2. Add Print Button to Quiz Results Page
+- **Status**: ✅ Completed
+- **Description**: Added a "Print Results" button to the QuizResultsPage.jsx action buttons section
+- **Changes Made**:
+  - Added PrintIcon import to the icons
+  - Imported `printQuizResults` function from '../utils/printResults'
+  - Added a new "Print Results" button as the first button in the action buttons section
+  - Used `printQuizResults(quiz, session, user)` function call
+
+## Technical Details
+- **Print Function**: Utilizes the existing `printQuizResults` utility function from `../utils/printResults.js`
+- **Parameters**: Takes quiz object, session/submission object, and user object as parameters
+- **UI Integration**: Buttons are styled consistently with Material-UI design system
+- **Accessibility**: Print buttons include appropriate icons and clear labels
+
+## Testing Notes
+- Print functionality depends on the `printQuizResults` utility function working correctly
+- Ensure browser print dialog opens when buttons are clicked
+- Verify that quiz data, scores, and user information are properly formatted in the print output
 
 ## Files Modified
-- `client/src/pages/InstructorDashboardPage.jsx` - Updated state management and UI logic
-- `routes/submissions.js` - Already had batch delete route
-- `client/src/services/quizAPI.js` - Already had batch delete method
+1. `client/src/pages/StudentDashboardPage.jsx`
+2. `client/src/pages/QuizResultsPage.jsx`
 
-## Next Steps
-- Run application and test the functionality
-- Fix any issues found during testing
-- Remove debug console.log statements after verification
+All changes maintain existing functionality while adding the requested print feature.

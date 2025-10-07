@@ -12,19 +12,22 @@ import {
   Chip,
   Divider,
   Alert,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
+  TextField,
 } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
   Cancel as WrongIcon,
   ArrowBack as BackIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useQuiz } from '../context/QuizContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { printQuizResults } from '../utils/printResults';
 
 const QuizReviewPage = () => {
   const { quizId } = useParams();
@@ -339,12 +342,21 @@ const QuizReviewPage = () => {
           >
             Previous
           </Button>
-          <Button
-            variant="contained"
-            onClick={() => navigate(`/quiz/${quizId}/results`)}
-          >
-            Back to Results
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<PrintIcon />}
+              onClick={() => printQuizResults(quiz, session, user)}
+            >
+              Print Quiz
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => navigate(`/quiz/${quizId}/results`)}
+            >
+              Back to Results
+            </Button>
+          </Box>
           <Button
             variant="outlined"
             onClick={handleNextQuestion}

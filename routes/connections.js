@@ -56,13 +56,57 @@ router.post('/request', auth, async (req, res) => {
 router.put('/accept/:id', auth, checkApproved, async (req, res) => {
   try {
     const connection = await Connection.findById(req.params.id);
-    
+
     if (!connection) {
       return res.status(404).json({ message: 'Connection request not found' });
     }
 
     if (connection.receiver.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // If the receiver is an instructor, check student limit
+    if (req.user.role === 'instructor') {
+      const instructor = await User.findById(req.user.id);
+      if (!instructor) {
+        return res.status(404).json({ message: 'Instructor not found' });
+      }
+
+      // Count current accepted student connections
+      const result = await Connection.aggregate([
+        {
+          $match: {
+            $or: [
+              { sender: req.user._id, status: 'accepted' },
+              { receiver: req.user._id, status: 'accepted' }
+            ]
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            let: { otherId: { $cond: { if: { $eq: ['$sender', req.user._id] }, then: '$receiver', else: '$sender' } } },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$_id', '$$otherId'] }, role: 'student' } }
+            ],
+            as: 'otherUser'
+          }
+        },
+        {
+          $match: { 'otherUser.0': { $exists: true } }
+        },
+        {
+          $count: 'total'
+        }
+      ]);
+
+      const currentStudents = result.length > 0 ? result[0].total : 0;
+
+      if (currentStudents >= instructor.studentLimit) {
+        return res.status(400).json({
+          message: `Student limit reached. You can only have up to ${instructor.studentLimit} students. Current: ${currentStudents}`
+        });
+      }
     }
 
     connection.status = 'accepted';

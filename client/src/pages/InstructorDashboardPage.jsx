@@ -30,6 +30,10 @@ import {
   AccordionSummary,
   AccordionDetails,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -50,10 +54,14 @@ import {
   Clear as ClearIcon,
   CheckBox as CheckBoxIcon,
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
+  Print as PrintIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
+import html2pdf from 'html2pdf.js';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ConnectionRequests from '../components/common/ConnectionRequests';
+import StudentSelector from '../components/common/StudentSelector';
 import quizAPI from '../services/quizAPI';
 import axios from 'axios';
 
@@ -74,6 +82,12 @@ const InstructorDashboardPage = () => {
   const [allContent, setAllContent] = useState([]);
   const [quizSubmissions, setQuizSubmissions] = useState({});
   const [selectedSubmissions, setSelectedSubmissions] = useState([]);
+  const [assignDialog, setAssignDialog] = useState({
+    open: false,
+    quiz: null,
+    selectedStudents: [],
+  });
+  const [assigning, setAssigning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
@@ -207,6 +221,158 @@ const InstructorDashboardPage = () => {
     navigate('/students');
   };
 
+  const handlePrintQuiz = (quiz) => {
+    const printWindow = window.open('', '_blank');
+    const quizHtml = generateQuizHtml(quiz);
+    printWindow.document.write(quizHtml);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const handleDownloadQuiz = (quiz) => {
+    const element = document.createElement('div');
+    element.innerHTML = generateQuizHtml(quiz);
+    const filename = `${quiz.title}.pdf`;
+    const opt = {
+      margin: 1,
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(element).save();
+  };
+
+
+  const generateQuizHtml = (quiz) => {
+    let html = `
+      <html>
+      <head>
+        <title>${quiz.title}</title>
+        <style>
+          body {
+            font-family: 'Arial', sans-serif;
+            margin: 40px;
+            line-height: 1.6;
+            color: #333;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #1976d2;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          h1 {
+            color: #1976d2;
+            margin: 0;
+            font-size: 28px;
+          }
+          .quiz-info {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
+          }
+          .question {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+          }
+          .question-number {
+            background-color: #1976d2;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: bold;
+            margin-bottom: 10px;
+          }
+          .question-text {
+            font-size: 16px;
+            margin-bottom: 15px;
+            font-weight: 500;
+          }
+          .options {
+            margin-left: 20px;
+          }
+          .option {
+            margin-bottom: 8px;
+            padding: 5px 0;
+          }
+          .option-letter {
+            font-weight: bold;
+            margin-right: 10px;
+            min-width: 20px;
+            display: inline-block;
+          }
+          .open-ended {
+            border-bottom: 1px solid #ccc;
+            padding: 20px 0;
+            margin-top: 10px;
+            min-height: 60px;
+          }
+          .instructions {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1976d2;
+          }
+          @media print {
+            body { margin: 20px; }
+            .question { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${quiz.title}</h1>
+          <div class="quiz-info">
+            <strong>Description:</strong> ${quiz.description || 'No description'}
+          </div>
+          <div class="quiz-info">
+            <strong>Total Questions:</strong> ${quiz.questions?.length || 0}
+          </div>
+        </div>
+
+        <div class="instructions">
+          <strong>Instructions:</strong> Please answer all questions. For multiple choice questions, select the best answer. For select-all questions, choose all that apply. For open-ended questions, provide detailed responses.
+        </div>
+    `;
+
+    if (quiz.questions && quiz.questions.length > 0) {
+      quiz.questions.forEach((q, index) => {
+        const questionNumber = index + 1;
+        html += `
+          <div class="question">
+            <div class="question-number">Question ${questionNumber}</div>
+            <div class="question-text">${q.question}</div>
+            <div class="options">
+        `;
+
+        if (q.type === 'multiple-choice' || q.type === 'true-false') {
+          if (q.options && q.options.length > 0) {
+            q.options.forEach((option, optIndex) => {
+              const letter = String.fromCharCode(65 + optIndex);
+              html += `<div class="option"><span class="option-letter">${letter}.</span> ${option.text}</div>`;
+            });
+          }
+        } else if (q.type === 'select-all') {
+          if (q.options && q.options.length > 0) {
+            q.options.forEach((option, optIndex) => {
+              html += `<div class="option"><span class="option-letter">□</span> ${option.text}</div>`;
+            });
+          }
+        } else {
+          html += `<div class="open-ended">Answer:</div>`;
+        }
+
+        html += `</div></div>`;
+      });
+    }
+
+    html += `</body></html>`;
+    return html;
+  };
+
   const handleDeleteQuiz = async (quizId) => {
     if (window.confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
       try {
@@ -291,6 +457,49 @@ const InstructorDashboardPage = () => {
     }
   };
 
+  const handleAssignClick = (quiz) => {
+    setAssignDialog({
+      open: true,
+      quiz,
+      selectedStudents: [],
+    });
+  };
+
+  const handleAssignDialogClose = () => {
+    setAssignDialog({
+      open: false,
+      quiz: null,
+      selectedStudents: [],
+    });
+  };
+
+  const handleStudentSelectionChange = (selectedStudents) => {
+    setAssignDialog(prev => ({
+      ...prev,
+      selectedStudents,
+    }));
+  };
+
+  const handleAssignSubmit = async () => {
+    if (!assignDialog.quiz || assignDialog.selectedStudents.length === 0) return;
+
+    setAssigning(true);
+    try {
+      await axios.post(`${API_BASE_URL}/quizzes/${assignDialog.quiz._id}/assign`, {
+        studentIds: assignDialog.selectedStudents,
+      });
+      setError('');
+      handleAssignDialogClose();
+      loadAllAssignments(); // Refresh assignments
+      loadDashboardData(); // Refresh dashboard data
+    } catch (error) {
+      console.error('Error assigning quiz:', error);
+      setError(`Failed to assign quiz: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   const getStatusIcon = (item, type) => {
     if (type === 'content') {
       if (item.isCompleted) return <CheckCircleIcon color="success" />;
@@ -348,7 +557,7 @@ const InstructorDashboardPage = () => {
                 icon={getStatusIcon(view, 'content')}
                 label={`${view.content.title} (${view.content.type})`}
                 size="small"
-                color={view.isCompleted ? 'success' : view.viewedAt ? 'info' : 'default'}
+                color={view.isCompleted ? 'success' : (view.viewedAt ? 'info' : 'default')}
                 variant="outlined"
               />
             ))}
@@ -381,23 +590,35 @@ const InstructorDashboardPage = () => {
       {allQuizzes.length > 0 ? allQuizzes.map(quiz => (
         <Card key={quiz._id} sx={{ mb: 2 }}>
           <CardContent>
-            <Typography variant="h6">{quiz.title}</Typography>
-            <Typography variant="body2" color="text.secondary">Assigned Students:</Typography>
-            {quiz.students && quiz.students.length > 0 ? (
-              quiz.students.map(s => {
-                const student = s.student;
-                if (!student) return null;
-                const isSubmitted = s.submittedAt !== undefined && s.submittedAt !== null;
-                return (
-                  <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
-                    <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
-                    <Chip label={isSubmitted ? 'Submitted' : 'Not Submitted'} color={isSubmitted ? 'success' : 'default'} size="small" />
-                  </Box>
-                );
-              }).filter(Boolean)
-            ) : (
-              <Typography variant="body2" color="text.secondary">No students assigned</Typography>
-            )}
+            <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+              <Box flex={1}>
+                <Typography variant="h6">{quiz.title}</Typography>
+                <Typography variant="body2" color="text.secondary">Assigned Students:</Typography>
+                {quiz.students && quiz.students.length > 0 ? (
+                  quiz.students.map(s => {
+                    const student = s.student;
+                    if (!student) return null;
+                    const isSubmitted = s.submittedAt !== undefined && s.submittedAt !== null;
+                    return (
+                      <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                        <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
+                        <Chip label={isSubmitted ? 'Submitted' : 'Not Submitted'} color={isSubmitted ? 'success' : 'default'} size="small" />
+                      </Box>
+                    );
+                  }).filter(Boolean)
+                ) : (
+                  <Typography variant="body2" color="text.secondary">No students assigned</Typography>
+                )}
+              </Box>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => handleAssignClick(quiz)}
+                sx={{ ml: 2 }}
+              >
+                Assign
+              </Button>
+            </Box>
           </CardContent>
         </Card>
       )) : (
@@ -419,7 +640,7 @@ const InstructorDashboardPage = () => {
                 return (
                   <Box key={student._id} display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
                     <Typography>{student.profile?.firstName} {student.profile?.lastName} ({student.username})</Typography>
-                    <Chip label={view ? (view.isCompleted ? 'Completed' : 'Viewed') : 'Not Started'} color={view?.isCompleted ? 'success' : view?.viewedAt ? 'info' : 'default'} size="small" />
+                    <Chip label={view ? (view.isCompleted ? 'Completed' : 'Viewed') : 'Not Started'} color={view?.isCompleted ? 'success' : (view?.viewedAt ? 'info' : 'default')} size="small" />
                   </Box>
                 );
               }).filter(Boolean)
@@ -753,9 +974,17 @@ const InstructorDashboardPage = () => {
                   <React.Fragment key={quiz._id}>
                     <ListItem
                       secondaryAction={
-                        <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteQuiz(quiz._id)}>
-                          <DeleteIcon />
-                        </IconButton>
+                        <Box display="flex" gap={1}>
+                          <IconButton size="small" onClick={() => handlePrintQuiz(quiz)} title="Print Quiz">
+                            <PrintIcon />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDownloadQuiz(quiz)} title="Download Quiz PDF">
+                            <DownloadIcon />
+                          </IconButton>
+                          <IconButton size="small" edge="end" aria-label="delete" onClick={() => handleDeleteQuiz(quiz._id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
                       }
                     >
                       <ListItemAvatar>
@@ -913,7 +1142,7 @@ const InstructorDashboardPage = () => {
                         icon={getStatusIcon(view, 'content')}
                         label={`${view.content.title} - ${getStatusText(view, 'content')}`}
                         size="small"
-                        color={view.isCompleted ? 'success' : view.viewedAt ? 'info' : 'default'}
+                        color={view.isCompleted ? 'success' : (view.viewedAt ? 'info' : 'default')}
                       />
                     ))}
                   </Box>
@@ -944,6 +1173,24 @@ const InstructorDashboardPage = () => {
 
         {activeTab === 5 && renderReviewSubmissionsTab()}
       </Paper>
+
+      {assignDialog.open && (
+        <Dialog open={assignDialog.open} onClose={handleAssignDialogClose} maxWidth="md" fullWidth>
+          <DialogTitle>Assign Quiz: {assignDialog.quiz?.title}</DialogTitle>
+          <DialogContent>
+            <StudentSelector
+              selectedStudents={assignDialog.selectedStudents}
+              onSelectionChange={handleStudentSelectionChange}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleAssignDialogClose}>Cancel</Button>
+            <Button onClick={handleAssignSubmit} variant="contained" disabled={assigning}>
+              {assigning ? 'Assigning...' : 'Assign'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Container>
   );
 };

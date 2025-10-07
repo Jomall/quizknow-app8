@@ -24,7 +24,47 @@ router.get('/instructors', async (req, res) => {
   try {
     const instructors = await User.find({ role: 'instructor' })
       .select('-password');
-    res.json(instructors);
+
+    // Add currentStudents count for each instructor
+    const instructorsWithCounts = await Promise.all(
+      instructors.map(async (instructor) => {
+        const result = await Connection.aggregate([
+          {
+            $match: {
+              $or: [
+                { sender: instructor._id, status: 'accepted' },
+                { receiver: instructor._id, status: 'accepted' }
+              ]
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              let: { otherId: { $cond: { if: { $eq: ['$sender', instructor._id] }, then: '$receiver', else: '$sender' } } },
+              pipeline: [
+                { $match: { $expr: { $eq: ['$_id', '$$otherId'] }, role: 'student' } }
+              ],
+              as: 'otherUser'
+            }
+          },
+          {
+            $match: { 'otherUser.0': { $exists: true } }
+          },
+          {
+            $count: 'total'
+          }
+        ]);
+
+        const currentStudents = result.length > 0 ? result[0].total : 0;
+
+        return {
+          ...instructor.toObject(),
+          currentStudents
+        };
+      })
+    );
+
+    res.json(instructorsWithCounts);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -50,12 +90,16 @@ router.put('/approve-instructor/:id', auth, authorize('admin'), checkSuspended, 
       return res.status(403).json({ message: 'Access denied' });
     }
     const user = await User.findById(req.params.id);
-    
+
     if (!user || user.role !== 'instructor') {
       return res.status(404).json({ message: 'Instructor not found' });
     }
 
     user.isApproved = true;
+    // Set default student limit to 25 for new instructors
+    if (!user.studentLimit) {
+      user.studentLimit = 25;
+    }
     await user.save();
 
     res.json({ message: 'Instructor approved successfully', user });
@@ -164,6 +208,28 @@ router.get('/quiz-stats', auth, authorize('student'), checkSuspended, async (req
   }
 });
 
+// Get global stats (public)
+router.get('/global-stats', async (req, res) => {
+  try {
+    const activeUsers = await User.countDocuments({ isSuspended: false });
+    const quizzesCreated = await Quiz.countDocuments();
+
+    const result = await QuizSubmission.aggregate([
+      { $group: { _id: null, totalAnswers: { $sum: { $size: "$answers" } } } }
+    ]);
+
+    const questionsAnswered = result.length > 0 ? result[0].totalAnswers : 0;
+
+    res.json({
+      activeUsers,
+      quizzesCreated,
+      questionsAnswered
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get user by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -203,6 +269,79 @@ router.put('/suspend/:id', auth, authorize('admin'), checkSuspended, async (req,
     await user.save();
 
     res.json({ message: `User ${user.isSuspended ? 'suspended' : 'unsuspended'} successfully`, user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update instructor student limit (admin only)
+router.put('/instructor-limit/:id', auth, authorize('admin'), checkSuspended, async (req, res) => {
+  try {
+    const { studentLimit } = req.body;
+
+    if (typeof studentLimit !== 'number' || studentLimit < 1 || studentLimit > 50) {
+      return res.status(400).json({ message: 'Student limit must be between 1 and 50' });
+    }
+
+    const user = await User.findById(req.params.id);
+
+    if (!user || user.role !== 'instructor') {
+      return res.status(404).json({ message: 'Instructor not found' });
+    }
+
+    user.studentLimit = studentLimit;
+    await user.save();
+
+    res.json({ message: 'Student limit updated successfully', user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get instructor with student count (admin only)
+router.get('/instructor-details/:id', auth, authorize('admin'), checkSuspended, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+
+    if (!user || user.role !== 'instructor') {
+      return res.status(404).json({ message: 'Instructor not found' });
+    }
+
+    // Count current students
+    const result = await Connection.aggregate([
+      {
+        $match: {
+          $or: [
+            { sender: user._id, status: 'accepted' },
+            { receiver: user._id, status: 'accepted' }
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          let: { otherId: { $cond: { if: { $eq: ['$sender', user._id] }, then: '$receiver', else: '$sender' } } },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$otherId'] }, role: 'student' } }
+          ],
+          as: 'otherUser'
+        }
+      },
+      {
+        $match: { 'otherUser.0': { $exists: true } }
+      },
+      {
+        $count: 'total'
+      }
+    ]);
+
+    const currentStudents = result.length > 0 ? result[0].total : 0;
+
+    res.json({
+      instructor: user,
+      currentStudents,
+      availableSlots: user.studentLimit - currentStudents
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

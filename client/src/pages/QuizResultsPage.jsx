@@ -20,11 +20,13 @@ import {
   Cancel as WrongIcon,
   AccessTime as TimeIcon,
   Score as ScoreIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useQuiz } from '../context/QuizContext';
 import QuizResults from '../components/quiz/QuizResults';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { printQuizResults } from '../utils/printResults';
 
 const QuizResultsPage = () => {
   const { quizId, sessionId } = useParams();
@@ -252,7 +254,14 @@ const QuizResultsPage = () => {
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 3 }}>
               <Button
                 variant="contained"
-                onClick={() => navigate(`/quiz/${quizId}/review`)}
+                startIcon={<PrintIcon />}
+                onClick={() => printQuizResults(quiz, session, user)}
+              >
+                Print Results
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => navigate(`/quiz-review/${quizId}`)}
               >
                 Review Answers
               </Button>
@@ -268,6 +277,12 @@ const QuizResultsPage = () => {
                 onClick={() => navigate('/browse-quizzes')}
               >
                 Browse More Quizzes
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => navigate('/dashboard')}
+              >
+                Return to Dashboard
               </Button>
             </Box>
           </Grid>

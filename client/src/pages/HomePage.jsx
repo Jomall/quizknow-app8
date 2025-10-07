@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -22,6 +22,7 @@ import {
   EmojiEvents,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import quizAPI from '../services/quizAPI';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -72,6 +73,30 @@ const HomePage = () => {
       text: 'Perfect for training sessions. The real-time feedback helps me adjust my teaching on the fly.',
     },
   ];
+
+  const [stats, setStats] = useState({
+    activeUsers: '10K+',
+    quizzesCreated: '50K+',
+    questionsAnswered: '500K+',
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await quizAPI.getGlobalStats();
+        const data = response.data;
+        setStats({
+          activeUsers: data.activeUsers.toLocaleString(),
+          quizzesCreated: data.quizzesCreated.toLocaleString(),
+          questionsAnswered: data.questionsAnswered.toLocaleString(),
+        });
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+        // Keep defaults
+      }
+    };
+    fetchStats();
+  }, []);
 
   return (
     <Box>
@@ -166,7 +191,7 @@ const HomePage = () => {
           <Grid container spacing={4} textAlign="center">
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="h3" color="primary.main" gutterBottom>
-                10K+
+                {stats.activeUsers}
               </Typography>
               <Typography variant="h6" color="text.secondary">
                 Active Users
@@ -174,7 +199,7 @@ const HomePage = () => {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="h3" color="primary.main" gutterBottom>
-                50K+
+                {stats.quizzesCreated}
               </Typography>
               <Typography variant="h6" color="text.secondary">
                 Quizzes Created
@@ -182,7 +207,7 @@ const HomePage = () => {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="h3" color="primary.main" gutterBottom>
-                500K+
+                {stats.questionsAnswered}
               </Typography>
               <Typography variant="h6" color="text.secondary">
                 Questions Answered

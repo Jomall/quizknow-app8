@@ -14,6 +14,8 @@ async function testAPI() {
         // Test registration
         console.log('\n2. Testing registration...');
         const registerData = {
+            firstName: 'Test',
+            lastName: 'User',
             username: 'testuser' + Date.now(),
             email: `test${Date.now()}@example.com`,
             password: 'test123',
