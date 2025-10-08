@@ -44,10 +44,7 @@ import {
   Visibility as VisibilityIcon,
   Add as AddIcon,
   School as SchoolIcon,
-  TrendingUp as TrendingUpIcon,
   PersonAdd as PersonAddIcon,
-  Schedule as ScheduleIcon,
-  PlayArrow as PlayArrowIcon,
   ExpandMore as ExpandMoreIcon,
   Assessment as AssessmentIcon,
   Delete as DeleteIcon,
@@ -102,7 +99,7 @@ const InstructorDashboardPage = () => {
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [loadDashboardData]);
 
   useEffect(() => {
     if (!user.isApproved && activeTab === 3) {
@@ -114,7 +111,7 @@ const InstructorDashboardPage = () => {
     if (activeTab === 5) {
       loadQuizSubmissions();
     }
-  }, [activeTab, recentQuizzes]);
+  }, [activeTab, recentQuizzes, loadQuizSubmissions]);
 
   useEffect(() => {
     if (activeTab === 4) {
@@ -122,7 +119,7 @@ const InstructorDashboardPage = () => {
       // Also refresh the main dashboard data to get latest quiz assignments
       loadDashboardData();
     }
-  }, [activeTab]);
+  }, [activeTab, loadAllAssignments, loadDashboardData]);
 
   const loadQuizSubmissions = async () => {
     try {

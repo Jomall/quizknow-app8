@@ -38,7 +38,7 @@ const ContentViewPage = () => {
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const navigate = useNavigate();
   const { contentId } = useParams();
-  const { user } = useAuth();
+  const { } = useAuth();
 
   useEffect(() => {
     fetchContent();
@@ -47,10 +47,10 @@ const ContentViewPage = () => {
   const fetchContent = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE_URL}/content/${contentId}`, {
+      const { data } = await axios.get(`${API_BASE_URL}/content/${contentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setContent(response.data);
+      setContent(data);
 
       // Mark content as viewed
       await axios.post(`${API_BASE_URL}/content/${contentId}/view`, {}, {

@@ -40,7 +40,7 @@ const CreateQuizPage = () => {
     },
   });
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { } = useAuth();
   const { createQuiz } = useQuiz();
 
   const handleNext = () => {

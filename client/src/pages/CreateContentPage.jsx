@@ -46,7 +46,7 @@ const CreateContentPage = () => {
   const [success, setSuccess] = useState('');
 
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { } = useAuth();
 
   const contentTypes = [
     { value: 'video', label: 'Video File', icon: <VideoIcon />, accept: 'video/*' },

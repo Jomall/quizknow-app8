@@ -7,9 +7,6 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActions,
-  CardMedia,
-  Chip,
   Avatar,
   Rating,
 } from '@mui/material';
@@ -18,8 +15,6 @@ import {
   Speed,
   Analytics,
   Group,
-  TrendingUp,
-  EmojiEvents,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import quizAPI from '../services/quizAPI';
