@@ -430,7 +430,7 @@ const StudentDashboardPage = () => {
         </Grid>
 
         {/* Submitted Quizzes */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Submitted Quizzes</Typography>
@@ -480,8 +480,9 @@ const StudentDashboardPage = () => {
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
+                        sx={{ maxWidth: '50%' }}
                         primary={submission.quiz.title}
-                        secondary={`Score: ${submission.percentage}% • Submitted: ${new Date(submission.submittedAt).toLocaleDateString()}`}
+                        secondary={`Score: ${submission.percentage}% • ${new Date(submission.submittedAt).toLocaleDateString()}`}
                       />
                     </ListItem>
                     <Divider />

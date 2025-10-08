@@ -4,7 +4,6 @@ import {
   Typography,
   Card,
   CardContent,
-  CardActions,
   Button,
   Avatar,
   List,
@@ -20,7 +19,6 @@ import {
   DialogActions,
 } from '@mui/material';
 import {
-  PersonAdd as PersonAddIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Person as PersonIcon,

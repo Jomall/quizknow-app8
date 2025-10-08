@@ -17,7 +17,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Avatar,
   LinearProgress,
 } from '@mui/material';
 import {
@@ -27,7 +26,6 @@ import {
   Share,
   Visibility,
   Search,
-  FilterList,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import quizAPI from '../../services/quizAPI';
@@ -48,7 +46,7 @@ const QuizList = ({ userRole = 'student' }) => {
 
   useEffect(() => {
     filterQuizzes();
-  }, [quizzes, searchTerm, subjectFilter, gradeFilter]);
+  }, [quizzes, searchTerm, subjectFilter, gradeFilter, filterQuizzes]);
 
   const loadQuizzes = async () => {
     try {

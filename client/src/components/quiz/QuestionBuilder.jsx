@@ -12,7 +12,6 @@ import {
   Box,
   Typography,
   IconButton,
-  Chip,
   Grid,
   FormControlLabel,
   Switch,
