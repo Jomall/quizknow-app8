@@ -11,8 +11,6 @@ import {
   Avatar,
   Divider,
   List,
-  ListItem,
-  ListItemText,
   ListItemIcon,
   Accordion,
   AccordionSummary,
@@ -26,11 +24,8 @@ import {
   Share,
   Print,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
 
 const QuizResults = ({ results, quiz, onRetake, onClose }) => {
-  const navigate = useNavigate();
-
   if (!results || !quiz) {
     return (
       <Box p={3} textAlign="center">
@@ -43,7 +38,6 @@ const QuizResults = ({ results, quiz, onRetake, onClose }) => {
     score,
     totalQuestions,
     percentage,
-    answers,
     timeSpent,
     completedAt,
     questionResults,
@@ -206,17 +200,17 @@ const QuizResults = ({ results, quiz, onRetake, onClose }) => {
                         <Typography variant="body2" gutterBottom>
                           <strong>Question:</strong> {question.question}
                         </Typography>
-                        
+
                         <Typography variant="body2" gutterBottom>
                           <strong>Your Answer:</strong> {result.userAnswer || 'Not answered'}
                         </Typography>
-                        
+
                         {!result.isCorrect && (
                           <Typography variant="body2" gutterBottom>
                             <strong>Correct Answer:</strong> {question.correctAnswer}
                           </Typography>
                         )}
-                        
+
                         {question.explanation && (
                           <Typography variant="body2" color="text.secondary">
                             <strong>Explanation:</strong> {question.explanation}
