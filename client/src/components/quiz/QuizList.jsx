@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -40,28 +40,7 @@ const QuizList = ({ userRole = 'student' }) => {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, quiz: null });
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadQuizzes();
-  }, []);
-
-  useEffect(() => {
-    filterQuizzes();
-  }, [quizzes, searchTerm, subjectFilter, gradeFilter, filterQuizzes]);
-
-  const loadQuizzes = async () => {
-    try {
-      setLoading(true);
-      const data = await quizAPI.getAllQuizzes();
-      setQuizzes(data);
-      setFilteredQuizzes(data);
-    } catch (error) {
-      console.error('Error loading quizzes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterQuizzes = () => {
+  const filterQuizzes = useCallback(() => {
     let filtered = quizzes;
 
     if (searchTerm) {
@@ -80,6 +59,27 @@ const QuizList = ({ userRole = 'student' }) => {
     }
 
     setFilteredQuizzes(filtered);
+  }, [quizzes, searchTerm, subjectFilter, gradeFilter]);
+
+  useEffect(() => {
+    loadQuizzes();
+  }, []);
+
+  useEffect(() => {
+    filterQuizzes();
+  }, [filterQuizzes]);
+
+  const loadQuizzes = async () => {
+    try {
+      setLoading(true);
+      const data = await quizAPI.getAllQuizzes();
+      setQuizzes(data);
+      setFilteredQuizzes(data);
+    } catch (error) {
+      console.error('Error loading quizzes:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStartQuiz = (quiz) => {

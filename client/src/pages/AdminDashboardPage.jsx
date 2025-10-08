@@ -7,7 +7,6 @@ import {
   Typography,
   Card,
   CardContent,
-  CardActions,
   Button,
   Avatar,
   Chip,
@@ -31,13 +30,11 @@ import {
   Assignment as AssignmentIcon,
   TrendingUp as TrendingUpIcon,
   AdminPanelSettings as AdminIcon,
-  MoreVert as MoreVertIcon,
   PersonAdd as PersonAddIcon,
   Delete as DeleteIcon,
   Block as BlockIcon,
   CheckCircle as CheckCircleIcon,
   Edit as EditIcon,
-  Group as GroupIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';

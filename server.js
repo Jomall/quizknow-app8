@@ -11,13 +11,52 @@ const fs = require('fs');
 dotenv.config();
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001"],
-    methods: ["GET", "POST"]
-  }
-});
+
+// CORS configuration for production
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      // Add your production domain here
+      /^https:\/\/.*\.vercel\.app$/,
+      /^https:\/\/quizknow.*\.vercel\.app$/
+    ];
+
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      } else {
+        return allowedOrigin.test(origin);
+      }
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+app.use(cors(corsOptions));
+
+// Initialize Socket.io only if not in Vercel serverless environment
+let io;
+if (process.env.VERCEL) {
+  console.log('Running in Vercel serverless environment - Socket.io disabled');
+} else {
+  const server = http.createServer(app);
+  io = socketIo(server, {
+    cors: corsOptions
+  });
+}
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -61,7 +100,6 @@ const upload = multer({
 });
 
 // Middleware
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
@@ -88,7 +126,8 @@ async function connectDB() {
   }
 }
 
-async function startServer() {
+// Initialize database and routes
+async function initializeApp() {
   await connectDB();
 
   // Ensure indexes are created
@@ -113,26 +152,46 @@ async function startServer() {
   app.use('/api/connections', connectionRoutes);
   app.use('/api/submissions', submissionRoutes);
 
-  // Socket.io for real-time notifications
-  io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
-    
-    socket.on('join-room', (userId) => {
-      socket.join(userId);
-    });
-    
-    socket.on('disconnect', () => {
-      console.log('User disconnected:', socket.id);
-    });
-  });
+  // Socket.io for real-time notifications (only if not in Vercel)
+  if (io) {
+    io.on('connection', (socket) => {
+      console.log('User connected:', socket.id);
 
-  // Make io accessible to routes
-  app.set('io', io);
+      socket.on('join-room', (userId) => {
+        socket.join(userId);
+      });
 
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+      socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+      });
+    });
+
+    // Make io accessible to routes
+    app.set('io', io);
+  }
+
+  return app;
 }
 
-startServer();
+// For Vercel serverless functions
+if (process.env.VERCEL) {
+  initializeApp().then(() => {
+    console.log('App initialized for Vercel');
+  }).catch(err => {
+    console.error('Failed to initialize app:', err);
+  });
+
+  // Export the app for Vercel
+  module.exports = app;
+} else {
+  // For local development
+  initializeApp().then((app) => {
+    const server = http.createServer(app);
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  }).catch(err => {
+    console.error('Failed to start server:', err);
+  });
+}

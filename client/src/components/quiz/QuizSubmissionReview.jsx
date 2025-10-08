@@ -31,7 +31,6 @@ import LoadingSpinner from '../common/LoadingSpinner';
 const QuizSubmissionReview = () => {
   const { quizId, sessionId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const [submission, setSubmission] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -41,7 +40,7 @@ const QuizSubmissionReview = () => {
 
   useEffect(() => {
     loadSubmission();
-  }, [quizId, sessionId]);
+  }, [quizId, sessionId, loadSubmission]);
 
   const loadSubmission = async () => {
     try {
